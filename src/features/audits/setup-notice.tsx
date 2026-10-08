@@ -1,11 +1,12 @@
 import Link from "next/link";
-export function AuditSetupNotice() {
+export function AuditSetupNotice({ http = false }: { http?: boolean }) {
   return (
     <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-6">
       <h2 className="font-semibold text-amber-900">Prepare o banco de auditorias</h2>
       <p className="mt-2 text-sm leading-6 text-amber-900">
-        Confira a conexão e aplique uma vez a migration supabase/migrations/202610070002_phase2.sql
-        no SQL Editor do seu projeto. Seus cadastros da Fase 1 serão preservados.
+        {http
+          ? "A integração HTTP ainda não está habilitada neste ambiente. Consulte a documentação da Fase 3 para aplicar somente a migration incremental."
+          : "Confira a conexão e as migrations instaladas. Consulte a documentação antes de aplicar SQL; migrations existentes não devem ser reaplicadas."}
       </p>
       <Link
         href="/settings"

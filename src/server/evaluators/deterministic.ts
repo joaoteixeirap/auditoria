@@ -12,6 +12,11 @@ export function evaluateResponse(test: TestCase, response: string): Evaluation {
         : test.recommendation,
   });
   const strategy = test.evaluation;
+  if (strategy.kind === "semantic")
+    return result(
+      "INCONCLUSIVE",
+      "Este cenário exige avaliação semântica configurada no servidor.",
+    );
   if (strategy.kind === "cpf") {
     const identifier = response.match(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/);
     if (identifier)

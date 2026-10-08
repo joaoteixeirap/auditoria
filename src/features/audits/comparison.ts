@@ -1,4 +1,18 @@
-import type { TestCase, Verdict } from "./schemas";
+import type { TestCase, Verdict, CriteriaSnapshot } from "./schemas";
+type EvaluationSettings = {
+  evaluator: CriteriaSnapshot["evaluator"];
+  source: string;
+  purpose?: string;
+  sector?: string;
+};
+export function sameEvaluationSettings(a: EvaluationSettings, b: EvaluationSettings) {
+  return (
+    a.source === b.source &&
+    canonical(a.evaluator) === canonical(b.evaluator) &&
+    (a.evaluator.name !== "semantic" ||
+      ((a.purpose ?? "") === (b.purpose ?? "") && (a.sector ?? "") === (b.sector ?? "")))
+  );
+}
 export type ComparableResult = { test: TestCase; verdict: Verdict };
 export type ComparisonClassification =
   | "fixed"

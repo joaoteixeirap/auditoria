@@ -41,7 +41,7 @@ const nextSteps = [
   {
     number: "01",
     title: "Organize sua operação",
-    detail: "Autenticação, organização, clientes e chatbots com isolamento de dados.",
+    detail: "Sua empresa, seus chatbots e suas políticas, com isolamento de dados.",
     phase: "Fase 1",
   },
   {
@@ -68,11 +68,11 @@ export default function HomePage() {
             Configuração inicial
           </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Prepare seu workspace
+            Prepare o espaço da sua empresa
           </h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-            A base do Auditor de IA está pronta. Configure a infraestrutura para iniciar o
-            desenvolvimento do seu primeiro fluxo de auditoria.
+            A base do Auditor de IA está pronta. Configure a infraestrutura para iniciar o uso do
+            seu primeiro fluxo de auditoria.
           </p>
         </div>
         <Link href="/settings" className={buttonVariants({ size: "lg" })}>
@@ -125,7 +125,7 @@ export default function HomePage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <h3 className="text-sm font-semibold">{step.title}</h3>
-                      <span className="text-xs text-slate-500">{step.phase} · Pendente</span>
+                      <span className="text-xs text-slate-500">{step.phase} · Implementada</span>
                     </div>
                     <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{step.detail}</p>
                   </div>
@@ -141,7 +141,7 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-slate-600">
-              O primeiro fluxo testará um assistente comercial fictício contra uma política de
+              O fluxo demonstrativo testa um assistente comercial fictício contra uma política de
               desconto máximo de 10%.
             </p>
             <div className="mt-5 space-y-4">
@@ -165,14 +165,14 @@ export default function HomePage() {
               </div>
             </div>
             <p className="mt-6 border-t border-indigo-100 pt-4 text-xs leading-5 text-slate-600">
-              Planejado para a Fase 2. A demonstração será reproduzível e funcionará sem API de IA.
+              A demonstração é reproduzível e funciona sem API de IA.
             </p>
           </CardContent>
         </Card>
       </div>
       <p className="mt-6 text-xs leading-5 text-muted-foreground">
-        Esta é a base visual da Fase 0. Os módulos pendentes estão identificados na navegação;
-        nenhuma métrica ou auditoria foi simulada.
+        Configure o Supabase para acessar os cadastros e as auditorias persistidas. Funcionalidades
+        futuras estão identificadas na navegação.
       </p>
     </AppShell>
   );

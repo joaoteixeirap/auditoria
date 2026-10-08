@@ -7,6 +7,7 @@ import { pageWorkspace } from "@/server/services/workspace";
 import { auditDetails, findFinding } from "@/server/repositories/audits";
 import { uuidSchema } from "@/lib/validations/entities";
 import { severityLabels, categoryLabels } from "@/features/audits/labels";
+import { HumanReview } from "@/features/audits/human-review";
 
 export default async function FindingPage({
   params,
@@ -32,6 +33,15 @@ export default async function FindingPage({
       description={`${details.conditions.agent.name} · Versão ${details.conditions.version.label}`}
       action={{ href: `/audits/new?retest=${id}`, label: "Retestar outra versão" }}
     >
+      <HumanReview
+        db={context.db}
+        org={context.organization.id}
+        run={id}
+        findings={[findingId]}
+        findingId={findingId}
+        owner={context.membership.role === "owner"}
+        completed={details.run.status === "completed"}
+      />
       <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-5">
         <div className="flex flex-wrap gap-2">
           <Badge className="bg-red-800">

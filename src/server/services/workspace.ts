@@ -46,7 +46,10 @@ export async function pageWorkspace() {
 
 export function requireOwner(role: "owner" | "member") {
   if (role !== "owner")
-    throw new ApplicationError("FORBIDDEN", "Somente owners podem cadastrar ou editar recursos.");
+    throw new ApplicationError(
+      "FORBIDDEN",
+      "Somente administradores podem cadastrar ou editar recursos.",
+    );
 }
 export function validatedId(value: unknown) {
   const result = uuidSchema.safeParse(value);

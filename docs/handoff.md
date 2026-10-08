@@ -1,197 +1,194 @@
-# Passagem do projeto — equipe e próxima IA
+﻿# Passagem do projeto — equipe e próxima IA
 
-Atualizado em **7 de outubro de 2026**.
+Atualizado em **8 de outubro de 2026**.
 
-## Estado no encerramento
+VestCasa agora também no Dify Cloud: conexão real HTTP e Gemini validadas em
+memória; diagnóstico/correção em [dify-validacao.md](dify-validacao.md).
+Prazo Dify 30 s, demais HTTP 10 s; logs seguros e erros específicos na interface.
+115 testes e build aprovados; não alegar fluxo autenticado salvo ou PDF Dify.
 
-O usuário pediu para parar por hoje, sem testar manualmente a Fase 2.
-O código está salvo no workspace. Não iniciar novas funcionalidades sem uma
-nova instrução do usuário. Este arquivo registra o ponto de retomada.
+Atendimento VestCasa publicado no Botpress Vibe/Viber: investigação em
+[botpress-vestcasa.md](botpress-vestcasa.md). Chat API não consta dos canais
+documentados do Viber; aguarda conferência em Deploy > Channels da conta.
+Nenhum adaptador ou chamada real implementado/executado sem essa confirmação.
+Demonstração imediata possível por coleta manual no Webchat + CSV + Gemini/PDF.
 
-Projeto: Auditor de IA, SaaS multi-tenant para agências auditarem chatbots.
-Workspace atual: `C:\Users\unisanta\Desktop\hackathon`.
-Stack: Next.js App Router, React, TypeScript strict, Tailwind, shadcn/ui,
-Supabase Auth/PostgreSQL, React Hook Form/Zod, Vitest e Playwright.
-Sem Prisma, NestJS, Redis, Docker obrigatório ou chave OpenAI para a demonstração.
+O usuário confirmou CSV com Gemini, falha, revisão humana e PDF. Verificação
+de isolamento/decisão: [validacao-isolamento.md](validacao-isolamento.md).
+RLS local: 32 testes aprovados; REST remoto anônimo bloqueado com HTTP 401 nas
+cinco tabelas privadas. Matriz autenticada remota depende das duas sessões
+capturadas pelo usuário via scripts/check-organization-isolation.mjs --capture.
+Decisão está implementada como select, administrador/concluída; visibilidade
+na sessão do usuário ainda precisa de conferência. URLs assinadas de 60 s são
+autorização temporária transferível; registrar essa ressalva ao isolamento por URL.
 
-## O que está implementado
+Correção posterior do timeout Gemini: [gemini-timeout.md](gemini-timeout.md).
+Prazo total 75 s, até duas tentativas transitórias, logs somente de metadados,
+temperatura padrão e thinking minimal. Avaliação real pós-correção aprovada:
+PASS em 3.876 ms, FAIL em 12.698 ms, HTTP 200 e evidências literais.
+Nenhuma operação no banco remoto nesta correção. Auditoria CSV anterior com
+ERROR deve ser preservada; criar nova importação para conferir o fluxo corrigido.
+Verificação final desta correção: 108 testes em 15 arquivos, check e build
+aprovados. Nenhuma migration, dependência, commit, push ou deploy nesta rodada.
 
-### Fases 0 e 1
+Gemini foi adicionado como provedor opcional, preservando OpenAI. Configuração
+e teste real opt-in: [gemini.md](gemini.md). A chave fica exclusivamente em
+GEMINI_API_KEY no backend. Nenhuma chave foi cadastrada automaticamente.
+O usuário cadastrou a chave em `.env.local`. O teste real com dados fictícios
+passou com gemini-3.1-flash-lite: PASS e FAIL esperados, evidência literal e
+consumo de tokens. Modelo inicial 2.5 retornou HTTP 404; somente a variável
+de modelo foi ajustada, sem alterar a chave. Check: 102 testes; build aprovado.
+Em duas repetições posteriores houve timeout de 30 segundos. Não declarar
+estabilidade da API; manter erro técnico separado de falha comportamental.
 
-- Base visual responsiva em português, componentes e scripts de qualidade.
-- Autenticação Supabase SSR: cadastro, login, logout, recuperação, callbacks.
-- Onboarding atômico e seleção da organização com cookie validado no servidor.
-- Papéis: owner cadastra/edita; member tem leitura nesta fase.
-- Clientes e chatbots: cadastro, edição, busca, paginação, detalhes e arquivamento.
-- Versões imutáveis e dashboard com dados consultados no Supabase.
-- Migrations, grants por coluna, FKs compostas e políticas RLS.
-- O usuário respondeu “feito” ao pedido de executar o primeiro fluxo da Fase 1.
-  Isso não é uma verificação automatizada de todos os fluxos de autenticação.
+## Estado atual
 
-### Fase 2 — implementada, com validação manual remota pendente
+O usuário autorizou continuar e terminar as fases. A implementação local das
+Fases 3 a 5 e a medição inicial da Fase 6 estão prontas para ativação/validação.
+O alinhamento SaaS B2B foi implementado depois dessa rodada, preservando a base.
+Consultar [b2b-alinhamento.md](b2b-alinhamento.md) para a entrega mais recente.
+As sete migrations foram aplicadas pelo usuário e seus marcadores confirmados
+por leitura em 8/10/2026. Gemini está configurado; não exige OpenAI para esse fluxo.
+Não declarar o projeto concluído em produção: faltam validação autenticada das
+novas funcionalidades, endpoint real de chatbot e publicação na Vercel.
 
-- Bot fictício determinístico com revisões 1 (falhas) e 2 (corrigida).
-- Dez cenários curados, cobrindo políticas, informações incorretas, privacidade,
-  discriminação e resistência à manipulação de instruções.
-- Cadastro de versões com seleção explícita do comportamento demonstrativo.
-- Auditorias: preparação, execução por cenário no servidor, progresso salvo,
-  retomada, cancelamento, histórico e detalhes das evidências.
-- Resultados PASS / FAIL / INCONCLUSIVE / ERROR; erro técnico não vira FAIL.
-- Snapshots de cliente, agente, versão, regras, cenários e avaliador.
-- Comparação de versões com correções, falhas persistentes, regressões e aviso
-  quando os critérios não são compatíveis.
-- Métricas, histórico no dashboard e registros de uso com custo estimado zero
-  para o conector de demonstração.
-- Taxa: PASS / (PASS + FAIL) × 100; sem testes conclusivos, não calculável.
-- Falha crítica bloqueia elegibilidade; liberação continua sendo decisão humana.
+Projeto único Next.js App Router, React, TypeScript strict, Tailwind/shadcn,
+Supabase Auth/PostgreSQL/Storage, Zod, Vitest e Playwright. Sem backend separado,
+Prisma, Redis ou Docker obrigatório. Node.js 24.13.0 instalado no PATH.
+Branch atual: `chore/validacao-fase2`. Nenhum commit ou push foi feito nesta
+continuidade. Não alterar main diretamente nem enviar código automaticamente.
 
-Não existe execução de chatbot HTTP, avaliação OpenAI, upload de PDF, relatório
-PDF, revisão humana formal, billing ou deploy nesta entrega.
+## Implementado e preservado
 
-## Banco remoto — já aplicado
+- Fases 0/1: base responsiva em português, autenticação SSR, onboarding,
+  organizações, owner/member, clientes/chatbots, versões imutáveis e dashboard.
+- Fase 2: dez cenários curados, bot fictício defeituoso/corrigido, execução por
+  cenário, progresso salvo, retomada, cancelamento, evidências e comparação.
+  O usuário confirmou manualmente o ciclo completo e acesso aos detalhes em
+  8/10/2026; não informou contagens separadamente.
+- Fase 3: HTTP message-text-v1, SSRF com DNS/IP fixado, limites/timeout,
+  credenciais AES-256-GCM e configuração imutável por versão. CSV validado,
+  pré-visualização e avaliação de respostas preservadas, sem chamar chatbot.
+- Fase 4: políticas privadas versionadas, rascunho/aprovação humana, upload
+  TXT/PDF privado, extração de texto, sugestões da IA como rascunhos e avaliação
+  semântica com Responses API/Structured Outputs. Modelo explícito no snapshot.
+- Fase 5: revisões de achados e decisões humanas append-only, bloqueio de
+  liberação no servidor e RLS, relatórios PDF privados com snapshot imutável,
+  links assinados e gráficos de resultados reais. Publicação preparada em docs.
+- Fase 6 inicial: consumo de avaliações persistido atomicamente, estimativa
+  opcional de custo, limites persistentes existentes e visualização em /usage.
+  Não há filas duráveis, worker, lotes em background ou alertas operacionais.
 
-O usuário aplicou pelo SQL Editor do Supabase:
+PASS/FAIL exigem evidência literal. Falhas técnicas são ERROR; evidência
+insuficiente é INCONCLUSIVE. Taxa: PASS/(PASS+FAIL); critérios diferentes não
+produzem comparação equivalente. Revisões não sobrescrevem resultados originais.
 
-1. `supabase/migrations/202610070001_phase1.sql`.
-2. `supabase/migrations/202610070002_phase2.sql`.
+## Banco remoto e próximo passo
 
-O agente verificou **Supabase Auth HTTP 200**, `phase1-v1` e `phase2-v1` no
-projeto remoto usando as variáveis locais, sem exibir credenciais.
+Já aplicadas pelo usuário e verificadas somente por leitura:
 
-**Não reaplicar essas migrations.** Para mudanças posteriores, criar uma nova
-migration incremental. Não editar SQL já aplicado para tentar atualizar o remoto.
-Se adotar Supabase CLI, reconciliar o histórico das migrations aplicadas pelo
-SQL Editor antes de `db push`; conferir o projeto e o schema antes de repair.
+1. `supabase/migrations/202610070001_phase1.sql`
+2. `supabase/migrations/202610070002_phase2.sql`
 
-O arquivo `.env.local` está presente nesta máquina e ignorado pelo Git.
-Nunca imprimir seu conteúdo ou pedir secrets na conversa. Em outra máquina,
-configurar as variáveis a partir de `.env.example`.
+As cinco incrementais abaixo também foram aplicadas pelo usuário e seus
+marcadores confirmados. **Não reaplicar nem editar nenhuma das sete migrations.**
 
-## Verificações realmente executadas
+1. `202610080001_http.sql`
+2. `202610080002_workflow.sql`
+3. `202610080003_usage.sql`
+4. `202610080004_b2b.sql`
+5. `202610080005_memberships.sql`
 
-- `npm run check`: passou — lint, tipos, **59 testes em 6 arquivos**,
-  consistência do catálogo SQL e formatação.
-- `npm run build`: passou com as rotas de auditorias e o proxy.
-- PostgreSQL local (PGlite): migrations reais, RLS, constraints, idempotência,
-  cancelamento, imutabilidade, erro técnico e o ciclo completo v1 → v2.
-- Resultado desse ciclo local: **v1 = 3 PASS + 7 FAIL; v2 = 10 PASS**;
-  comparação identificou **7 correções**.
-- Playwright/Edge: **5 testes passaram; 1 foi explicitamente pulado**.
-  Os aprovados verificaram redirects, validação, conexão remota e navegação móvel.
-- O teste pulado é o ciclo autenticado que grava auditorias no Supabase. Ele
-  exige sessão salva localmente e autorização explícita para gravação.
-- A auditoria completa **não foi testada manualmente pelo usuário**: ele
-  preferiu encerrar o trabalho antes dessa validação.
+`npm run supabase:check` confirmou Auth HTTP 200 e todos os sete marcadores
+instalados após o usuário informar a aplicação dos arquivos. O comando não grava
+dados nem mostra credenciais; marcadores não substituem testes remotos de RLS.
+Se adotar Supabase CLI, reconciliar o histórico aplicado pelo SQL Editor antes
+de db push/repair. Não desativar RLS nem usar service_role.
 
-Os testes de RLS foram locais. Marcadores remotos confirmam instalação, não
-substituem testes autenticados de isolamento no projeto remoto.
+Roteiro completo: [workflow.md](workflow.md). Próximo passo: validar manualmente
+com contas existentes e dados fictícios, sem reaplicar migrations.
+Não criar usuários remotos ou enviar e-mails de teste sem autorização explícita.
 
-Último audit de produção executado na Fase 1: zero vulnerabilidades reportadas.
-Não foram adicionadas dependências npm na Fase 2. Permanecem os cinco avisos
-transitivos de desenvolvimento do ESLint descritos em `docs/validation.md`.
+## Configuração e serviços pendentes
 
-## Primeiro passo ao retomar, quando o usuário solicitar
+`.env.local` está presente e ignorado pelo Git. Nunca imprimir seu conteúdo.
+A configuração Supabase já funciona. Chave/modelo OpenAI e acesso Vercel não
+estavam disponíveis na checagem local; foi perguntado ao usuário quais serviços
+possui, sem solicitar secrets. O usuário informou que não há chatbot real.
 
-Validar o fluxo manual da Fase 2 antes de iniciar integrações da Fase 3:
+Variáveis novas, exclusivamente no servidor:
 
-1. Entrar com uma conta owner, sem compartilhar a senha com a IA.
-2. Usar um cliente fictício e chatbot ativo em ambiente **Demonstração**.
-3. Abrir `/audits/new`, selecionar uma versão “Falhas intencionais” e os 10
-   cenários. Clicar em **Preparar auditoria → Executar cenários**.
-4. Confirmar progresso persistido, 7 falhas, 3 aprovações e evidências. Abrir
-   “Investigar falha” no cenário de desconto e conferir o trecho de 20%.
-5. Na página do chatbot, registrar um nome de versão ainda não usado, como
-   `v2-corrigida`, com comportamento **Versão 2 · Corrigida**.
-6. Retestar essa versão com os mesmos cenários: esperar 10 aprovações.
-7. Comparar as duas auditorias: esperar critérios compatíveis e 7 correções.
-8. Atualizar este arquivo e o roadmap com o resultado observado; corrigir erros
-   encontrados antes de ampliar o escopo.
+- CONNECTOR_ENCRYPTION_KEY: 32 bytes em hexadecimal, necessária para toda conexão
+  HTTP configurável e para Bearer HTTP legado.
+- OPENAI_API_KEY e OPENAI_EVALUATOR_MODEL: necessárias para avaliação semântica
+  e sugestões. Sem modelo padrão; escolher modelo compatível com Structured Outputs.
+- OPENAI_INPUT_USD_PER_MILLION e OPENAI_OUTPUT_USD_PER_MILLION: preços opcionais,
+  sem pressupor valores. Custo ausente aparece como não calculado.
 
-Uma versão chamada `v2` não é automaticamente corrigida. O comportamento
-depende de `agent_versions.demo_revision`. Versões antigas receberam revisão 1
-na migration; criar uma nova versão com revisão 2, sem alterar o histórico.
+OpenAI não é necessária para build, testes ou demonstração. Upload não envia
+texto à IA; sugestões e avaliações exigem autorização na interface. Não houve
+chamada real à OpenAI ou chatbot externo nesta entrega.
 
-## Como executar
+PDF usa pdf-parse para extração e pdf-lib para geração: as únicas duas novas
+dependências de produção desta etapa, justificadas previamente ao usuário.
+Não foi instalada CLI de publicação. Veja [deployment.md](deployment.md).
+Sem commit/push, importação Git na Vercel não inclui as alterações locais;
+um deploy da pasta pode ser realizado com CLI autenticada após revisar a entrega.
 
-Node.js **24 LTS**. Nesta máquina existe runtime portátil em `.tools`, sem
-instalação no PATH. No PowerShell:
+## Verificação
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/npm.ps1 run dev
-powershell -ExecutionPolicy Bypass -File scripts/npm.ps1 run check
-powershell -ExecutionPolicy Bypass -File scripts/npm.ps1 run build
-powershell -ExecutionPolicy Bypass -File scripts/npm.ps1 run supabase:check
-```
+A rodada anterior está registrada em [validation-workflow.md](validation-workflow.md).
+A rodada B2B mais recente está em [b2b-alinhamento.md](b2b-alinhamento.md).
+SQL real foi executado no PGlite, com contrato mínimo local de Auth e Storage.
+Isso verifica RLS/constraints e permissões locais, não o serviço remoto de Storage.
+OpenAI e transporte HTTP foram testados com respostas controladas, sem tokens reais.
 
-Em outra máquina, instalar Node.js 24 e usar `npm ci`, `npm run dev`,
-`npm run check` e `npm run build` normalmente.
+O ciclo PostgreSQL preservado produziu v1 = 3 PASS + 7 FAIL; v2 = 10 PASS,
+com sete correções. Isso é resultado dos testes locais, distinto da confirmação
+manual do usuário. E2E autenticado de gravação não foi executado.
 
-O servidor de desenvolvimento existente foi preservado. Para encerrá-lo,
-usar Ctrl+C no terminal em que ele está rodando. Isso não apaga arquivos nem
-registros já persistidos no Supabase.
+## Execução e E2E
 
-## E2E autenticado opcional
+Usar `npm.cmd run dev`, `npm.cmd run check`, `npm.cmd run build` no PowerShell.
+Em máquina sem Node no PATH, usar o wrapper `scripts/npm.ps1`, se o runtime
+portátil .tools estiver disponível. Em nova máquina: Node 24 e npm ci.
+O servidor de desenvolvimento existente foi preservado.
 
-O teste está em `tests/e2e/audit-demo.spec.ts`. Somente executar gravações remotas
-com autorização do usuário. Ele cria duas auditorias e uma versão de demonstração
-no agente escolhido; esses registros permanecem no histórico.
+Playwright/Edge verifica rotas privadas, formulários e navegação sem cadastrar
+usuários. `E2E_LIVE_SUPABASE=1` permite conexão somente leitura.
+O fluxo autenticado opt-in está em `tests/e2e/audit-demo.spec.ts` e exige sessão
+local .tools/e2e-state.json, E2E_AGENT_ID de agente demo próprio e autorização
+explícita para E2E_WRITE_SUPABASE=1. Não salvar nem compartilhar a sessão no Git.
+O script `npm run test:e2e:session` permite login manual no navegador sem pedir senha.
 
-O usuário pode executar `npm run test:e2e:session` localmente, entrar no navegador
-e salvar `.tools/e2e-state.json`. O script não pede senha no terminal. Esse
-arquivo contém sessão e deve permanecer local, ignorado pelo Git.
+## Limitações a preservar
 
-Depois definir `E2E_WRITE_SUPABASE=1`, `E2E_AGENT_ID` com o UUID de um agente
-demo próprio e executar `npm run test:e2e`. Para Edge instalado, definir
-`PLAYWRIGHT_CHANNEL=msedge`. O teste autenticado desabilita trace, vídeo e screenshots.
-O teste de conexão somente leitura usa `E2E_LIVE_SUPABASE=1`.
+- Dez cenários, uma auditoria ativa e cem auditorias mensais por organização.
+- Execução avança pela página; fechar permite retomar, mas não executa em background.
+- Persistência idempotente não garante chamada externa única; concorrência ou
+  falha antes de salvar pode repetir chamadas e gerar consumo adicional.
+- Rate limits em memória não são controle distribuído de gastos.
+- Uso mostra até 1.000 avaliações persistidas; não inclui sugestões de regras,
+  falhas sem consumo retornado nem toda a conta do provedor. Custos são estimativas.
+- Listagens novas têm limites explícitos (até 100); ver workflow.md.
+- PDF: até 1 MB, 20 páginas e 50 mil caracteres; sem OCR/senha. Caracteres fora
+  da fonte do relatório viram ? apenas na apresentação; snapshot mantém original.
+- Upload e metadados não são uma transação conjunta: falha pode deixar arquivo
+  privado órfão, para manutenção administrativa.
+- Buckets privados e RLS precisam ser conferidos também no ambiente remoto.
+- Preservar snapshots, versões, vereditos e evidências; nunca fabricar métricas.
+- Convites por código e papéis administrador/membro implementados localmente;
+  remoção de membros e alteração de papéis de membros existentes ficam para evolução.
+- Filas, billing, WhatsApp e monitoramento agendado não estão implementados.
 
-## Limitações que a próxima IA precisa preservar
+## Arquivos de entrada
 
-- Não existe worker em background. A página dispara uma requisição por cenário;
-  fechar/pausar interrompe o avanço, e resultados salvos podem ser retomados.
-- No máximo 10 cenários por execução e uma execução pending/running por
-  organização. Limite inicial: 100 auditorias mensais por organização.
-- Catálogo global de demonstração é consultável por authenticated e não contém
-  dados de clientes. Auditorias, achados e uso são isolados por organização.
-- Regras personalizadas/editáveis não estão implementadas; os critérios
-  determinísticos vêm do catálogo curado. Não alegar avaliação semântica geral.
-- Não gerar porcentagens comparáveis quando os critérios mudaram.
-- Não sobrescrever versões, snapshots, vereditos ou evidências anteriores.
-- Não usar service_role em operações comuns nem desativar RLS.
-- Não criar resultados fictícios como se fossem auditorias executadas.
-- Não editar as migrations aplicadas; alterações de catálogo também precisam
-  de nova migration após esta instalação.
+Ler AGENTS.md, este handoff, README, docs/roadmap.md e docs/workflow.md.
+Código: src/features/audits, src/features/policies, src/server/repositories,
+src/server/connectors, src/server/evaluators e src/server/services.
+Testes de banco: src/server/database/audits.test.ts e rls.test.ts.
+Migrations anteriores são imutáveis; as novas ainda aguardam instalação remota.
 
-## Arquivos de entrada para outra IA
-
-- `AGENTS.md`: convenções e segurança; ler primeiro.
-- `README.md`: instalação e uso.
-- `docs/architecture.md`: organização e decisões.
-- `docs/database.md`: schema e RLS.
-- `docs/roadmap.md`: pendências.
-- `src/features/audits`: schemas, catálogo, métricas, comparação e UI.
-- `src/server/services/audit-engine.ts`: execução e tratamento de erros.
-- `src/server/connectors/demo.ts`: respostas determinísticas.
-- `src/server/evaluators/deterministic.ts`: avaliação objetiva.
-- `src/server/repositories/audits.ts`: consultas e persistência.
-- `src/server/database/audits.test.ts`: testes da migration e do ciclo persistido.
-
-## Salvamento e compartilhamento
-
-Os arquivos estão salvos localmente. O repositório Git foi inicializado na
-branch `main`, com remoto `origin` apontando para
-`https://github.com/joaoteixeirap/auditoria.git`, a pedido do usuário.
-Para confirmar os commits e se foram enviados, consultar `git status`,
-`git log` e `git remote -v`. Não houve deploy. Um commit local só passa a estar
-disponível no GitHub depois de um push bem-sucedido.
-
-Levar código, documentação, migrations e `package-lock.json`. Não incluir
-`node_modules`, `.next`, `.tools`, `.env.local` ou sessões de testes. Cada
-integrante configura seu ambiente local separadamente.
-
-Sugestão de prompt para outra IA:
-
-> Leia AGENTS.md e docs/handoff.md antes de alterar o projeto. Continue do estado
-> documentado, sem reinicializar a aplicação ou reaplicar migrations. A Fase 2
-> está implementada, mas seu fluxo autenticado ainda precisa de validação manual.
-> Primeiro ajude a validar esse ciclo e corrija os problemas encontrados.
+Remote origin informado anteriormente: https://github.com/joaoteixeirap/auditoria.git.
+Levar código, docs, migrations e package-lock.json; excluir node_modules, .next,
+.tools, .env.local e sessões. Nenhum deploy foi realizado.

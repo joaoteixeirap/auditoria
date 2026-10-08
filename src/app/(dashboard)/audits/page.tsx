@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ResourceLayout, EmptyState, Pagination } from "@/components/shared/resource-layout";
 import { pageWorkspace } from "@/server/services/workspace";
 import { listAudits } from "@/server/repositories/audits";
@@ -47,9 +48,12 @@ export default async function AuditsPage({
       context={context}
       active="/audits"
       title="Auditorias"
-      description="Execuções reais no bot fictício, com critérios e resultados preservados no Supabase."
+      description="Auditorias demonstrativas ou HTTP, com critérios e resultados preservados no Supabase."
       action={{ href: "/audits/new", label: "Nova auditoria" }}
     >
+      <Link href="/audits/import" className="mb-5 inline-block text-sm text-primary underline">
+        Importar respostas CSV
+      </Link>
       {result.rows.length ? (
         <AuditTable audits={result.rows} />
       ) : (
@@ -69,8 +73,8 @@ export default async function AuditsPage({
         }}
       />
       <p className="mt-7 text-xs leading-5 text-muted-foreground">
-        A demonstração usa respostas determinísticas e dados fictícios. Não envia perguntas a um
-        chatbot externo nem consome uma API de IA.
+        Demonstração usa respostas fictícias sem API externa. Auditorias HTTP enviam perguntas ao
+        chatbot configurado. Ambos usam critérios determinísticos do catálogo de referência.
       </p>
     </ResourceLayout>
   );

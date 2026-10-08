@@ -1,21 +1,29 @@
 # Auditor de IA
 
-Plataforma SaaS para agências e software houses testarem chatbots contra regras
-de negócio, investigarem evidências e compararem versões.
+Integração Atendimento VestCasa (Botpress Vibe/Viber): veja o
+[diagnóstico e roteiro da demonstração](docs/botpress-vestcasa.md).
 
-**Marco atual: Fase 2 implementada, com validação manual pendente.**
-Autenticação, organizações, clientes, chatbots, auditorias determinísticas,
-evidências, reteste e comparação de versões. As duas migrations foram aplicadas
-e seus marcadores confirmados no Supabase.
+SaaS B2B para empresas brasileiras auditarem seus próprios chatbots contra
+políticas internas, investigarem evidências e compararem versões.
+
+**Marco atual: fluxo das Fases 3 a 5 implementado localmente; ativação remota pendente.**
+Além da demonstração validada manualmente, há HTTP, CSV com pré-visualização,
+políticas versionadas, documentos privados, avaliação semântica com OpenAI,
+revisão humana, decisão de liberação, PDF e métricas reais de resultados/consumo.
+As duas migrations iniciais estão no Supabase; as cinco novas precisam ser
+aplicadas. Veja [ativação e validação do fluxo](docs/workflow.md).
 
 **Para retomar com outra pessoa ou IA, começar por [docs/handoff.md](docs/handoff.md).**
-O trabalho foi encerrado a pedido do usuário antes do teste manual das auditorias.
+Em 8 de outubro de 2026, o usuário confirmou o ciclo completo e o acesso aos
+detalhes das auditorias. O E2E autenticado remoto continua pendente.
 
 ## Requisitos e instalação
 
 - Node.js **24 LTS** e npm.
 - Um projeto Supabase com as migrations das Fases 1 e 2 instaladas.
-- OpenAI não é necessário para esta fase ou para a futura demonstração determinística.
+- OpenAI não é necessário para a demonstração ou CSV com regras curadas.
+- Regras personalizadas e sugestões exigem chave/modelo Gemini ou OpenAI no servidor.
+  Veja [configuração Gemini e teste real](docs/gemini.md).
 - Docker não é obrigatório.
 
 Na raiz do workspace:
@@ -30,9 +38,9 @@ Abra <http://localhost:3000>. `/settings` orienta a configuração;
 
 ### Esta máquina Windows
 
-Como Node.js não estava instalado no PATH, foi preparado um runtime portátil
-oficial em `.tools`, com SHA-256 validado. Ele não altera a instalação do sistema
-e está ignorado pelo Git. Para rodar agora no PowerShell:
+Nesta máquina, Node.js 24.13.0 está no PATH: usar `npm.cmd run dev`,
+`npm.cmd run check` e `npm.cmd run build` no PowerShell.
+O wrapper abaixo atende à máquina anterior, com runtime portátil em `.tools`:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/npm.ps1 run dev
@@ -103,25 +111,32 @@ Mantenha a confirmação de e-mail habilitada. O envio usa o Supabase Auth e seu
 limites. Antes de atender usuários externos, verifique as restrições do remetente
 padrão no painel e configure SMTP para produção.
 
-Fluxo: criar conta → confirmar e-mail → entrar → criar organização → cadastrar
-cliente → cadastrar chatbot → registrar versões. Owner gerencia; member só lê
-nesta fase. Convites e gerenciamento de membros permanecem no roadmap.
+Fluxo: criar conta → confirmar e-mail → criar organização → cadastrar chatbot →
+configurar conexão → adicionar e aprovar políticas → executar auditoria →
+analisar evidências → gerar PDF. Administradores gerenciam; membros consultam.
+Em Empresa e equipe, administradores geram convites individuais por código,
+válidos por sete dias e vinculados ao e-mail confirmado do destinatário.
+O código é compartilhado manualmente; a aplicação não envia e-mails de convite.
+Clientes antigos continuam preservados como vínculo opcional, sem intermediário obrigatório.
 Até 5 organizações por usuário podem ser criadas e selecionadas pelo menu da conta.
 
 Clientes e chatbots podem ser arquivados na edição. Exclusão física não é exposta
-para preservar vínculos. O conector cadastrado é demonstração, identificado na
-interface. O motor determinístico está implementado e não usa API externa de IA.
+para preservar vínculos. Ambiente Demonstração usa o conector fictício;
+Homologação/Produção aceita configuração HTTP por versão. CSV avalia respostas
+importadas, com identificação explícita da origem. O motor demonstrativo não
+usa API externa de IA.
 
 ## Demonstração da auditoria
 
-Use um cliente fictício, como Empresa Exemplo, e um chatbot ativo no ambiente
+Use um chatbot ativo no ambiente
 Demonstração. Em `/audits/new`, selecione a versão com falhas intencionais e
 os 10 cenários, prepare a auditoria e clique em Executar cenários.
 
 Depois investigue as evidências, registre uma versão com comportamento corrigido
 e reteste a mesma bateria. O ciclo esperado e os limites da validação estão em
 [docs/handoff.md](docs/handoff.md). O ciclo completo passou nos testes locais
-com PostgreSQL; a validação manual no remoto ficou pendente por escolha do usuário.
+com PostgreSQL; o usuário confirmou o ciclo manual e o acesso aos detalhes em
+8 de outubro de 2026. O E2E autenticado remoto ainda não foi executado.
 
 ## Qualidade
 
@@ -165,35 +180,43 @@ Em um projeto novo, abra SQL Editor e execute o arquivo inteiro uma vez.
 Uma transação impede instalação parcial. Não reexecute quando
 `npm run supabase:check` confirmar os marcadores `phase1-v1` e `phase2-v1`.
 
+No projeto existente, aplicar somente as cinco migrations novas, em ordem:
+`202610080001_http.sql`, `202610080002_workflow.sql`, `202610080003_usage.sql`,
+`202610080004_b2b.sql` e `202610080005_memberships.sql`.
+Elas habilitam HTTP, políticas/Storage/CSV/revisão/PDF e métricas/consumo.
+O roteiro completo está em [docs/workflow.md](docs/workflow.md).
+
 Também pode usar Supabase CLI: `supabase login`,
 `supabase link --project-ref <referência>` e `supabase db push`.
 Se já aplicou pelo SQL Editor, marque a migration como aplicada antes de adotar
 o CLI: `supabase migration repair 202610070001 --status applied`.
 Não execute repair em outro projeto sem conferir o schema.
 
-`src/types/database.ts` representa o contrato da migration aplicada, mantido
-manualmente nesta fase. Gerar os tipos pelo CLI a partir do schema remoto é uma
+`src/types/database.ts` representa o contrato das migrations locais, mantido
+manualmente. Gerar os tipos pelo CLI a partir do schema remoto é uma
 evolução recomendada; não foi feito nesta sessão.
 
 ## Publicação
 
-A aplicação é compatível com Vercel como projeto Next.js. Para a publicação
-futura, importe o repositório, selecione Node.js 24 e configure as duas variáveis
-no painel da Vercel. O build usa `npm run build`. Não há dependência de fontes
-ou APIs externas durante o build.
-
-Configure também `APP_URL`, o domínio e os redirects de autenticação no Supabase;
-aplique migrations e execute os testes de RLS antes de liberar acesso a dados.
-Nenhum deploy foi realizado nesta fase.
+A preparação da Vercel, variáveis e validação está em
+[docs/deployment.md](docs/deployment.md). Build usa `npm run build`, sem APIs
+externas ou downloads de fontes. Nenhum deploy foi realizado. As alterações
+permanecem na branch de continuidade, sem commit ou push automático.
 
 ## Documentação
 
 - [Arquitetura](docs/architecture.md)
+- [Entrega e validação do alinhamento SaaS B2B](docs/b2b-alinhamento.md)
+- [Configuração segura do Gemini e teste real fictício](docs/gemini.md)
+- [Diagnóstico e correção de timeout do Gemini](docs/gemini-timeout.md)
 - [Banco e segurança](docs/database.md)
+- [Conector HTTP e habilitação da Fase 3](docs/http-connector.md)
+- [Fluxo completo e ativação das fases seguintes](docs/workflow.md)
+- [Publicação na Vercel](docs/deployment.md)
 - [Roadmap](docs/roadmap.md)
 - [Verificações](docs/validation.md)
 - [Verificações da Fase 1](docs/validation-phase1.md)
-- [Passagem do projeto e estado da Fase 2](docs/handoff.md)
+- [Passagem do projeto e estado atual](docs/handoff.md)
 - [Convenções para agentes e desenvolvedores](AGENTS.md)
 
 O produto apoia decisões humanas sobre os cenários efetivamente testados.

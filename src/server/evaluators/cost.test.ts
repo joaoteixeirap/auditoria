@@ -1,0 +1,20 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { estimateEvaluationCost } from "./cost";
+afterEach(() => vi.unstubAllEnvs());
+it("não inventa custo sem preços e calcula somente com taxas explícitas", () => {
+  const usage = { model: "modelo-teste", inputTokens: 1000, outputTokens: 500 };
+  vi.stubEnv("OPENAI_EVALUATOR_MODEL", "modelo-teste");
+  vi.stubEnv("OPENAI_INPUT_USD_PER_MILLION", "");
+  vi.stubEnv("OPENAI_OUTPUT_USD_PER_MILLION", "");
+  expect(estimateEvaluationCost(usage)).toBeUndefined();
+  vi.stubEnv("OPENAI_INPUT_USD_PER_MILLION", "2");
+  vi.stubEnv("OPENAI_OUTPUT_USD_PER_MILLION", "6");
+  expect(estimateEvaluationCost(usage)).toBe(0.005);
+  const gemini = { ...usage, model: "gemini:gemini-3.1-flash-lite" };
+  vi.stubEnv("OPENAI_EVALUATOR_MODEL", gemini.model);
+  expect(estimateEvaluationCost(gemini)).toBeUndefined();
+  vi.stubEnv("OPENAI_EVALUATOR_MODEL", "modelo-teste");
+  expect(estimateEvaluationCost({ ...usage, model: "outro-modelo" })).toBeUndefined();
+  vi.stubEnv("OPENAI_INPUT_USD_PER_MILLION", "-1");
+  expect(estimateEvaluationCost(usage)).toBeUndefined();
+});

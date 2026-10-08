@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import type { AuditRun } from "@/types/database";
-import { statusLabels } from "./labels";
+import { statusLabels, sourceLabels } from "./labels";
 import { conditionsSchema } from "@/server/repositories/audits";
 
 export function AuditTable({ audits }: { audits: AuditRun[] }) {
   return (
     <div className="overflow-x-auto rounded-xl border bg-white">
       <table className="w-full text-left text-sm">
-        <caption className="sr-only">Auditorias de demonstração persistidas</caption>
+        <caption className="sr-only">Auditorias persistidas</caption>
         <thead className="border-b bg-slate-50 text-xs text-muted-foreground">
           <tr>
             {["Chatbot / versão", "Execução", "Testes salvos", "Data"].map((label) => (
@@ -31,7 +31,7 @@ export function AuditTable({ audits }: { audits: AuditRun[] }) {
                     {parsed.success ? parsed.data.agent.name : "Snapshot incompatível"}
                   </Link>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {parsed.success ? parsed.data.version.label : "—"} · Demonstração
+                    {parsed.success ? parsed.data.version.label : "—"} · {sourceLabels[run.source]}
                   </p>
                 </td>
                 <td className="px-5 py-4">

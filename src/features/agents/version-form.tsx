@@ -13,7 +13,7 @@ import {
   useServerSubmit,
 } from "@/components/shared/forms";
 
-export function VersionForm({ agentId }: { agentId: string }) {
+export function VersionForm({ agentId, isDemo = true }: { agentId: string; isDemo?: boolean }) {
   const {
     register,
     handleSubmit,
@@ -47,21 +47,23 @@ export function VersionForm({ agentId }: { agentId: string }) {
         />
       </Field>
       <Feedback result={result} />
-      <Field
-        id="demo_revision"
-        label="Comportamento do bot de demonstração"
-        error={errors.demo_revision?.message}
-      >
-        <select
-          {...register("demo_revision")}
-          {...fieldAccessibility("demo_revision", errors.demo_revision?.message)}
-          className={inputClass}
-          disabled={pending}
+      {isDemo && (
+        <Field
+          id="demo_revision"
+          label="Comportamento do bot de demonstração"
+          error={errors.demo_revision?.message}
         >
-          <option value="1">Versão 1 · Falhas intencionais</option>
-          <option value="2">Versão 2 · Corrigida</option>
-        </select>
-      </Field>
+          <select
+            {...register("demo_revision")}
+            {...fieldAccessibility("demo_revision", errors.demo_revision?.message)}
+            className={inputClass}
+            disabled={pending}
+          >
+            <option value="1">Versão 1 · Falhas intencionais</option>
+            <option value="2">Versão 2 · Corrigida</option>
+          </select>
+        </Field>
+      )}
       <Button type="submit" disabled={pending}>
         {pending ? "Registrando…" : "Registrar versão"}
       </Button>

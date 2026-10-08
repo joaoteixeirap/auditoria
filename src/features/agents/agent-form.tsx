@@ -33,8 +33,8 @@ export function AgentForm({
       name: "",
       client_id: "",
       description: "",
-      category: "sales",
-      environment: "demo",
+      category: "customer_service",
+      environment: "staging",
       status: "active",
       version: "v1",
     },
@@ -53,22 +53,28 @@ export function AgentForm({
             maxLength={120}
           />
         </Field>
-        <Field id="client_id" label="Cliente vinculado" error={errors.client_id?.message}>
-          <select
-            {...register("client_id")}
-            {...fieldAccessibility("client_id", errors.client_id?.message)}
-            className={inputClass}
+        {!!clients.length && (
+          <Field
+            id="client_id"
+            label="Vínculo anterior (opcional)"
+            error={errors.client_id?.message}
           >
-            <option value="">Selecione um cliente</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-                {client.status === "archived" ? " (arquivado)" : ""}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field id="category" label="Categoria" error={errors.category?.message}>
+            <select
+              {...register("client_id")}
+              {...fieldAccessibility("client_id", errors.client_id?.message)}
+              className={inputClass}
+            >
+              <option value="">Minha empresa</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                  {client.status === "archived" ? " (arquivado)" : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <Field id="category" label="Setor de utilização" error={errors.category?.message}>
           <select
             {...register("category")}
             {...fieldAccessibility("category", errors.category?.message)}
@@ -115,7 +121,11 @@ export function AgentForm({
           </Field>
         )}
         <div className="sm:col-span-2">
-          <Field id="description" label="Descrição (opcional)" error={errors.description?.message}>
+          <Field
+            id="description"
+            label="Descrição e finalidade (opcional)"
+            error={errors.description?.message}
+          >
             <textarea
               {...register("description")}
               {...fieldAccessibility("description", errors.description?.message)}
@@ -127,12 +137,11 @@ export function AgentForm({
         </div>
       </fieldset>
       <p className="rounded-lg bg-indigo-50 p-3 text-sm leading-6 text-indigo-900">
-        Conexão disponível: demonstração. A versão inicial usa respostas fictícias com falhas
-        intencionais. Cadastre uma nova versão com comportamento corrigido para comparar auditorias.
-        Integrações HTTP entram na Fase 3.
+        Demonstração usa respostas fictícias com falhas intencionais. Em Homologação ou Produção,
+        configure uma conexão HTTP por versão nos detalhes do chatbot antes de iniciar auditorias.
       </p>
       <Feedback result={result} />
-      <Button type="submit" disabled={pending || clients.length === 0}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Salvando…" : "Salvar chatbot"}
       </Button>
     </form>

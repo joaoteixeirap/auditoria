@@ -9,6 +9,10 @@ import { summarizeResults } from "@/features/audits/metrics";
 import { AuditSummary } from "@/features/audits/summary";
 import { AuditRunner } from "@/features/audits/audit-runner";
 import { verdictLabels, severityLabels, categoryLabels } from "@/features/audits/labels";
+import { HumanReview } from "@/features/audits/human-review";
+
+// 10 s de chatbot + até 75 s de IA + autorização e persistência.
+export const maxDuration = 120;
 
 export default async function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const context = await pageWorkspace(),
@@ -26,15 +30,35 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ id
       action={{ href: `/audits/new?retest=${id}`, label: "Retestar outra versão" }}
     >
       <div className="mb-5 flex flex-wrap gap-2">
-        <Badge variant="outline">Demonstração · Dados fictícios</Badge>
         <Badge variant="outline">
-          Bot{" "}
-          {details.conditions.connector.revision === 1 ? "com falhas intencionais" : "corrigido"}
+          {details.conditions.connector.type === "csv"
+            ? "CSV · Respostas importadas"
+            : details.conditions.connector.type === "http"
+              ? "HTTP · Endpoint externo"
+              : "Demonstração · Dados fictícios"}
+        </Badge>
+        <Badge variant="outline">
+          {details.conditions.connector.type === "csv"
+            ? "Avaliação de transcrição · Sem chamada ao chatbot"
+            : details.conditions.connector.type === "http"
+              ? details.conditions.connector.contract === "http-json-v1"
+                ? "API configurável"
+                : "API — formato original"
+              : details.conditions.connector.revision === 1
+                ? "Bot com falhas intencionais"
+                : "Bot corrigido"}
         </Badge>
         <Badge variant="outline">
           Critérios preservados · Catálogo v{details.criteria.catalogVersion}
         </Badge>
       </div>
+      {details.run.source !== "demo" &&
+        details.criteria.cases.some((test) => test.evaluation.kind !== "semantic") && (
+          <p className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
+            Esta auditoria usa critérios fictícios do catálogo demonstrativo. Eles não representam
+            automaticamente as políticas da sua empresa.
+          </p>
+        )}
       <AuditRunner
         auditId={id}
         canRun={context.membership.role === "owner"}
@@ -46,6 +70,14 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ id
         }}
       />
       <AuditSummary summary={summary} />
+      <HumanReview
+        db={context.db}
+        org={context.organization.id}
+        run={id}
+        findings={details.findings.map((finding) => finding.id)}
+        owner={context.membership.role === "owner"}
+        completed={details.run.status === "completed"}
+      />
       <div className="mb-4 mt-8 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold">Resultados e evidências</h2>
         {details.run.status === "completed" && (
@@ -158,10 +190,12 @@ export default async function AuditDetailPage({ params }: { params: Promise<{ id
         })}
       </div>
       <p className="mt-6 text-xs leading-5 text-muted-foreground">
-        Avaliador {details.criteria.evaluator.name} v{details.criteria.evaluator.version}. As regras
-        são determinísticas e restritas aos formatos explícitos deste catálogo. Ausência de
-        evidência gera INCONCLUSIVE; erros de conexão geram ERROR. A elegibilidade apoia decisão
-        humana e não é certificação.
+        Avaliador {details.criteria.evaluator.name} v{details.criteria.evaluator.version}.{" "}
+        {details.criteria.evaluator.name === "semantic"
+          ? `Modelo ${details.criteria.evaluator.model}. A avaliação por IA pode errar e exige revisão humana.`
+          : "As regras são determinísticas e restritas aos formatos explícitos deste catálogo."}{" "}
+        Ausência de evidência gera INCONCLUSIVE; erros de conexão geram ERROR. A elegibilidade apoia
+        decisão humana e não é certificação.
       </p>
     </ResourceLayout>
   );

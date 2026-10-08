@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
+  serverExternalPackages: ["pdf-parse"],
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   poweredByHeader: false,
   logging: { incomingRequests: { ignore: [/\/auth\/(callback|confirm)/] } },
   async headers() {

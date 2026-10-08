@@ -23,7 +23,17 @@ export default async function EditAgent({ params }: { params: Promise<{ id: stri
       {context.membership.role === "owner" ? (
         <Card className="max-w-3xl shadow-none">
           <CardContent>
-            <AgentForm clients={clients} id={id} initial={{ ...agent, version: "preservada" }} />
+            <AgentForm
+              clients={clients}
+              id={id}
+              initial={{
+                ...agent,
+                client_id: clients.some((client) => client.id === agent.client_id)
+                  ? agent.client_id
+                  : "",
+                version: "preservada",
+              }}
+            />
           </CardContent>
         </Card>
       ) : (

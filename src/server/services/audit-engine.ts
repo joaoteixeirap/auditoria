@@ -1,13 +1,24 @@
 import type { ChatbotConnector } from "@/server/connectors/types";
 import { evaluateResponse } from "@/server/evaluators/deterministic";
 import type { Evaluation, TestCase } from "@/features/audits/schemas";
+import {
+  evaluateSemantic,
+  type SemanticUsage,
+  type EvaluationContext,
+} from "@/server/evaluators/semantic";
 
-export type ExecutedTest = Evaluation & { response: string; latencyMs: number };
+export type ExecutedTest = Evaluation & {
+  response: string;
+  latencyMs: number;
+  usage?: SemanticUsage;
+};
 
 export async function executeTest(
   connector: ChatbotConnector,
   test: TestCase,
   sessionId: string,
+  model?: string,
+  evaluationContext?: EvaluationContext,
 ): Promise<ExecutedTest> {
   try {
     const reply = await connector.send({ message: test.question, sessionId });
@@ -21,7 +32,11 @@ export async function executeTest(
         recommendation:
           "Verificar a conexão e repetir o teste. Este resultado não é uma falha comportamental.",
       };
-    const evaluation = evaluateResponse(test, reply.text);
+    const semantic =
+      test.evaluation.kind === "semantic" && model
+        ? await evaluateSemantic(test, reply.text, model, evaluationContext)
+        : null;
+    const evaluation = semantic?.evaluation ?? evaluateResponse(test, reply.text);
     if (evaluation.evidence && !reply.text.includes(evaluation.evidence))
       return {
         ...evaluation,
@@ -30,8 +45,14 @@ export async function executeTest(
         reason: "O avaliador não conseguiu vincular a evidência à resposta recebida.",
         response: reply.text,
         latencyMs: reply.latencyMs,
+        ...(semantic?.usage ? { usage: semantic.usage } : {}),
       };
-    return { ...evaluation, response: reply.text, latencyMs: reply.latencyMs };
+    return {
+      ...evaluation,
+      response: reply.text,
+      latencyMs: reply.latencyMs,
+      ...(semantic?.usage ? { usage: semantic.usage } : {}),
+    };
   } catch {
     return {
       verdict: "ERROR",

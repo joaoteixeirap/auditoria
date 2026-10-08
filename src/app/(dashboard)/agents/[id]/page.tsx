@@ -12,6 +12,9 @@ import { parsePage } from "@/lib/utils/pagination";
 import { listAudits } from "@/server/repositories/audits";
 import { AuditTable } from "@/features/audits/audit-table";
 import { buttonVariants } from "@/components/ui/button";
+import { ConnectionForm } from "@/features/agents/connection-form";
+import { listConnections } from "@/server/repositories/connections";
+import { ApplicationError } from "@/server/services/errors";
 
 export default async function AgentDetail({
   params,
@@ -31,6 +34,16 @@ export default async function AgentDetail({
     listVersions(context.db, context.organization.id, id, page),
     listAudits(context.db, context.organization.id, 1, id),
   ]);
+  let connections: Awaited<ReturnType<typeof listConnections>> = [];
+  let httpReady = true;
+  if (agent.environment !== "demo" && context.membership.role === "owner") {
+    try {
+      connections = await listConnections(context.db, context.organization.id, id);
+    } catch (error) {
+      if (!(error instanceof ApplicationError && error.code === "PHASE3_SETUP")) throw error;
+      httpReady = false;
+    }
+  }
   return (
     <ResourceLayout
       context={context}
@@ -39,13 +52,11 @@ export default async function AgentDetail({
       description={`${categories[agent.category]} · ${environments[agent.environment]}`}
       action={{ href: `/agents/${id}/edit`, label: "Editar chatbot" }}
     >
-      {agent.environment === "demo" &&
-        agent.status === "active" &&
-        context.membership.role === "owner" && (
-          <Link href={`/audits/new?agent=${id}`} className={buttonVariants({ className: "mb-6" })}>
-            Auditar este chatbot
-          </Link>
-        )}
+      {agent.status === "active" && context.membership.role === "owner" && (
+        <Link href={`/audits/new?agent=${id}`} className={buttonVariants({ className: "mb-6" })}>
+          Auditar este chatbot
+        </Link>
+      )}
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
           <Card className="shadow-none">
@@ -55,11 +66,15 @@ export default async function AgentDetail({
             <CardContent>
               <dl className="grid gap-5 text-sm sm:grid-cols-2">
                 <div>
-                  <dt className="text-muted-foreground">Cliente</dt>
+                  <dt className="text-muted-foreground">Empresa / vínculo anterior</dt>
                   <dd className="mt-2">
-                    <Link href={`/clients/${agent.client_id}`} className="text-primary underline">
-                      {client?.name ?? "Cliente indisponível"}
-                    </Link>
+                    {client?.is_organization ? (
+                      context.organization.name
+                    ) : (
+                      <Link href={`/clients/${agent.client_id}`} className="text-primary underline">
+                        {client?.name ?? "Cliente indisponível"}
+                      </Link>
+                    )}
                   </dd>
                 </div>
                 <div>
@@ -99,10 +114,15 @@ export default async function AgentDetail({
                       {version.notes || "Sem notas"}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Bot demonstrativo:{" "}
-                      {version.demo_revision === 2
-                        ? "comportamento corrigido"
-                        : "falhas intencionais"}
+                      {agent.environment !== "demo"
+                        ? connections.some(
+                            (connection) => connection.agent_version_id === version.id,
+                          )
+                          ? "Conexão HTTP registrada"
+                          : "API: configure a conexão como administrador"
+                        : version.demo_revision === 2
+                          ? "comportamento corrigido"
+                          : "falhas intencionais"}
                     </p>
                   </li>
                 ))}
@@ -123,23 +143,60 @@ export default async function AgentDetail({
                 <CardTitle className="text-base">Registrar nova versão</CardTitle>
               </CardHeader>
               <CardContent>
-                <VersionForm agentId={id} />
+                <VersionForm agentId={id} isDemo={agent.environment === "demo"} />
               </CardContent>
             </Card>
           )}
           <Card className="shadow-none">
             <CardHeader>
-              <CardTitle className="text-base">Conexão de demonstração</CardTitle>
+              <CardTitle className="text-base">
+                {agent.environment === "demo"
+                  ? "Conexão de demonstração"
+                  : "Conexão HTTP por versão"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm leading-6 text-muted-foreground">
-                As auditorias usam o bot fictício determinístico desta plataforma. Escolha o
-                comportamento de demonstração ao cadastrar cada versão.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Somente agentes ativos em ambiente Demonstração podem executar esse conector.
-                Integrações com chatbots HTTP entram na Fase 3.
-              </p>
+              {agent.environment !== "demo" ? (
+                context.membership.role !== "owner" ? (
+                  <p className="text-sm">Somente administradores configuram conexões.</p>
+                ) : !httpReady ? (
+                  <p role="status" className="text-sm">
+                    A integração HTTP ainda não está habilitada neste ambiente. Consulte a
+                    documentação da Fase 3.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {connections.map((connection) => (
+                      <p key={connection.id} className="break-all text-sm">
+                        Versão{" "}
+                        {versions.rows.find((version) => version.id === connection.agent_version_id)
+                          ?.label ?? connection.agent_version_id}
+                        : {connection.endpoint}
+                      </p>
+                    ))}
+                    <ConnectionForm
+                      agentId={id}
+                      versions={versions.rows.filter(
+                        (version) =>
+                          !connections.some(
+                            (connection) => connection.agent_version_id === version.id,
+                          ),
+                      )}
+                    />
+                  </div>
+                )
+              ) : (
+                <>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    As auditorias usam o bot fictício determinístico desta plataforma. Escolha o
+                    comportamento de demonstração ao cadastrar cada versão.
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                    Somente agentes ativos em ambiente Demonstração podem executar esse conector.
+                    Para HTTP, use um cadastro separado em Homologação ou Produção.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

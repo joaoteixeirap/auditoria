@@ -49,7 +49,7 @@ export function AccessDenied() {
     <div role="alert" className="rounded-xl border bg-white p-6">
       <h2 className="font-semibold">Acesso de leitura</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Somente owners podem criar ou editar recursos desta organização.
+        Somente administradores podem criar ou editar recursos desta organização.
       </p>
     </div>
   );
