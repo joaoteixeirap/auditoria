@@ -1,8 +1,29 @@
 # Arquitetura inicial
 
+## Modelo SaaS B2B atual
+
+Cada empresa usa uma organização independente. O fluxo principal cadastra seus
+próprios chatbots, sem exigir cadastro de cliente ou agência. `organizations`,
+`profiles` e `organization_members` continuam como fonte de identidade e acesso.
+A camada `clients` é mantida para compatibilidade: um registro interno por
+organização atende às FKs existentes; vínculos antigos permanecem intactos.
+
+`create_company_agent` resolve esse vínculo no servidor. Convites individuais
+armazenam somente hash do código, exigem e-mail confirmado, expiram em sete dias
+e não permitem promoção de membro existente. UI e RLS mantêm administrador com
+gravação e membro com leitura; nenhuma operação usa service_role.
+
+`http-json-v1` parametriza método, headers, query, corpo e caminhos JSON. A
+configuração inteira é criptografada com contexto organização/versão, além dos
+limites e proteção SSRF já existentes. `message-text-v1` continua compatível.
+Auditorias HTTP novas exigem cenários privados aprovados e avaliação semântica.
+Retestes copiam o snapshot original, mesmo após mudanças de políticas. Dashboard
+real exclui demonstração e CSV; comparações exigem critérios, origem, avaliador
+e contexto compatíveis. Ver [entrega B2B](b2b-alinhamento.md).
+
 ## Aplicação única e módulos por funcionalidade
 
-Next.js App Router concentra UI, Server Actions e Route Handlers. Supabase será
+Next.js App Router concentra UI, Server Actions e Route Handlers. Supabase é
 a infraestrutura de PostgreSQL, Auth e Storage. Não há Prisma, backend separado,
 Redis, monorepo ou infraestrutura obrigatória com Docker.
 
@@ -59,7 +80,8 @@ autenticação são omitidos no desenvolvimento.
 - Auditorias usam uma requisição por cenário, com persistência atômica. Não há
   background volátil; ao fechar a página, resultados salvos podem ser retomados.
 - React Hook Form atende aos formulários da Fase 1; Playwright verifica os
-  redirects, validação e navegação. Recharts entra com métricas reais de auditoria.
+  redirects, validação e navegação. Gráficos acessíveis usam contagens reais,
+  renderizadas no servidor com CSS, sem dependência adicional de gráficos.
 
 Referências: [Next.js](https://nextjs.org/docs/app/getting-started/installation),
 [Supabase SSR](https://supabase.com/docs/guides/auth/server-side/creating-a-client)
@@ -83,3 +105,37 @@ Não há service_role nas operações da aplicação.
 A comparação verifica os critérios preservados antes de declarar correções e
 regressões. A taxa é PASS/(PASS+FAIL); erros e inconclusivos são separados.
 O estado atual e os testes pendentes estão em [handoff.md](handoff.md).
+
+## Conector HTTP da Fase 3
+
+Homologação e Produção usam configuração HTTP imutável por versão. Demonstração
+preserva o conector determinístico. O tipo de conexão do cadastro é sincronizado
+pelo banco quando o ambiente muda; auditorias anteriores preservam seus snapshots.
+Não foi adicionado backend separado, worker ou dependência npm.
+
+HttpConnector executa o contrato message-text-v1 com HTTPS nativo do Node,
+IP público validado e fixado no socket, timeout e limites de resposta. Tokens
+são criptografados no servidor e nunca entram nos snapshots. Repositories
+centralizam a configuração; Actions validam sessão, organização e papel owner.
+A execução reaproveita o avaliador e a persistência existentes. Ver
+[http-connector.md](http-connector.md) para contrato, segurança e limitações.
+
+## Políticas, CSV, revisão e relatórios
+
+Repositories centralizam cenários privados, documentos/Storage, revisões,
+decisões e relatórios. Server Actions validam Zod, sessão, organização e owner.
+Cenários aprovados entram no snapshot do banco, sem modificar o catálogo global.
+CSV usa o mesmo motor e persistência, lendo respostas do snapshot sem conexão externa.
+
+O avaliador semântico chama Responses API via fetch no servidor, com Structured
+Outputs e validação Zod. Modelo explícito é preservado no snapshot. Evidência
+literal é verificada novamente; saída inválida é ERROR. Não há SDK OpenAI.
+
+`pdf-parse` extrai texto de documentos privados; `pdf-lib` gera relatórios.
+São as duas novas dependências de produção, justificadas pela leitura e geração
+de PDF. Buckets privados têm RLS por organização e downloads assinados curtos.
+Revisões, decisões, versões e snapshots de PDFs são acrescentados sem sobrescrita.
+
+A persistência de consumo e resultados de IA é atômica. Não há fila durável nem
+garantia de chamada externa única; resultados salvos são idempotentes. Limites,
+estimativas e validações pendentes estão em [workflow.md](workflow.md).

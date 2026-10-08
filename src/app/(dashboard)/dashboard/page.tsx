@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Users, FlaskConical, ShieldAlert } from "lucide-react";
+import { Bot } from "lucide-react";
 import { ResourceLayout, EmptyState } from "@/components/shared/resource-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { pageWorkspace } from "@/server/services/workspace";
@@ -7,6 +7,7 @@ import { dashboardMetrics } from "@/server/repositories/resources";
 import { AgentTable } from "@/features/agents/agent-table";
 import { auditDashboard } from "@/server/repositories/audits";
 import { AuditTable } from "@/features/audits/audit-table";
+import { CompanyDashboard } from "@/features/audits/company-dashboard";
 
 export const metadata = { title: "Dashboard" };
 export default async function DashboardPage({
@@ -25,8 +26,8 @@ export default async function DashboardPage({
       context={context}
       active="/dashboard"
       title={context.organization.name}
-      description="Clientes e chatbots da sua organização, consultados no Supabase."
-      action={{ href: "/clients/new", label: "Cadastrar cliente" }}
+      description="Conecte seus chatbots, teste as políticas da empresa e acompanhe as evidências."
+      action={{ href: "/agents/new", label: "Cadastrar chatbot" }}
     >
       {params.logout === "error" && (
         <p role="alert" className="mb-5 text-sm text-red-700">
@@ -35,14 +36,8 @@ export default async function DashboardPage({
       )}
       <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Clientes cadastrados", value: metrics.clients, icon: Users },
+          { label: "Chatbots cadastrados", value: metrics.totalAgents, icon: Bot },
           { label: "Chatbots ativos", value: metrics.activeAgents, icon: Bot },
-          { label: "Auditorias concluídas", value: auditMetrics.completed, icon: FlaskConical },
-          {
-            label: "Achados críticos no histórico",
-            value: auditMetrics.criticalHistory,
-            icon: ShieldAlert,
-          },
         ].map(({ label, value, icon: Icon }) => (
           <Card key={label} className="shadow-none">
             <CardHeader>
@@ -57,6 +52,11 @@ export default async function DashboardPage({
           </Card>
         ))}
       </div>
+      <p className="mb-5 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm">
+        Comece pelo cadastro do chatbot, configure e teste a conexão, adicione políticas e execute a
+        auditoria. Depois investigue as falhas e gere seu relatório.
+      </p>
+      <CompanyDashboard db={context.db} org={context.organization.id} />
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-semibold">Chatbots recentes</h2>
         <Link href="/agents" className="text-sm text-primary">
@@ -68,7 +68,7 @@ export default async function DashboardPage({
       ) : (
         <EmptyState
           title="Nenhum chatbot cadastrado"
-          description="Cadastre um cliente e vincule seu primeiro chatbot para organizar as próximas auditorias."
+          description="Cadastre o chatbot da sua empresa, configure a conexão e adicione suas políticas."
         />
       )}
       <div className="mb-4 mt-8 flex items-center justify-between gap-3">
@@ -82,11 +82,11 @@ export default async function DashboardPage({
       ) : (
         <EmptyState
           title="Execute sua primeira auditoria"
-          description="Na demonstração, teste a versão inicial, investigue as evidências e compare os mesmos cenários com a versão corrigida."
+          description="Adicione políticas aprovadas e teste uma versão conectada. Para conhecer o produto sem uma API, escolha explicitamente o ambiente Demonstração."
         />
       )}
       <p className="mt-6 text-xs leading-5 text-muted-foreground">
-        As auditorias disponíveis usam o bot fictício de demonstração. Achados críticos são
+        Auditorias podem usar demonstração ou uma conexão HTTP configurada. Achados críticos são
         históricos e continuam registrados após uma correção; consulte a comparação para avaliar a
         nova versão.
       </p>

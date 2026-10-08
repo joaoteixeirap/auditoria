@@ -134,8 +134,8 @@ export default async function SettingsPage({
             <CardContent>
               <p className="text-sm leading-6 text-muted-foreground">
                 Após confirmar a instalação do banco, crie sua conta, confirme o e-mail e faça
-                login. O onboarding criará sua organização e seu vínculo como owner em uma única
-                transação.
+                login. O cadastro inicial criará sua organização e seu vínculo como administrador em
+                uma única transação.
               </p>
               <Link
                 href="/register"

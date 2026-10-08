@@ -4,7 +4,7 @@ import { catalogCaseSchema } from "./schemas";
 import { evaluateResponse } from "@/server/evaluators/deterministic";
 import { executeTest } from "@/server/services/audit-engine";
 import { summarizeResults } from "./metrics";
-import { compareResults } from "./comparison";
+import { compareResults, sameEvaluationSettings } from "./comparison";
 
 const cases = catalog.map((item) => catalogCaseSchema.parse(item));
 describe("critérios e métricas defensáveis", () => {
@@ -69,6 +69,23 @@ describe("critérios e métricas defensáveis", () => {
       "not_retested",
       "new_failure",
     ]);
+  });
+  it("comparação semântica exige o mesmo avaliador, contexto e origem", () => {
+    const before = {
+      evaluator: { name: "semantic" as const, version: "1.0.0" as const, model: "modelo-a" },
+      source: "http",
+      purpose: "Atendimento comercial",
+      sector: "sales",
+    };
+    expect(sameEvaluationSettings(before, { ...before })).toBe(true);
+    expect(
+      sameEvaluationSettings(before, {
+        ...before,
+        evaluator: { ...before.evaluator, model: "modelo-b" },
+      }),
+    ).toBe(false);
+    expect(sameEvaluationSettings(before, { ...before, source: "demo" })).toBe(false);
+    expect(sameEvaluationSettings(before, { ...before, purpose: "Outro escopo" })).toBe(false);
   });
   it("toda evidência automática corresponde à resposta avaliada", () => {
     for (const test of cases)

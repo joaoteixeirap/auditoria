@@ -6,34 +6,52 @@ import { caseSchema, criteriaSchema, createAuditSchema } from "@/features/audits
 import { ApplicationError } from "@/server/services/errors";
 import type { ExecutedTest } from "@/server/services/audit-engine";
 import { PAGE_SIZE } from "./resources";
+import { getAgent } from "./resources";
+import { listConnections } from "./connections";
+import { policies } from "./workflow";
+import { semanticModel } from "@/server/evaluators/semantic";
+import { estimateEvaluationCost } from "@/server/evaluators/cost";
 
 type DB = SupabaseClient<Database>;
 export const conditionsSchema = z.object({
-  agent: z.object({ id: z.uuid(), name: z.string(), environment: z.literal("demo") }),
+  agent: z.object({
+    id: z.uuid(),
+    name: z.string(),
+    environment: z.enum(["demo", "staging", "production"]),
+    description: z.string().max(2000).optional(),
+    category: z.string().max(80).optional(),
+  }),
   client: z.object({ id: z.uuid(), name: z.string() }),
   version: z.object({
     id: z.uuid(),
     label: z.string(),
     demo_revision: z.union([z.literal(1), z.literal(2)]),
   }),
-  connector: z.object({ type: z.literal("demo"), revision: z.union([z.literal(1), z.literal(2)]) }),
+  connector: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("demo"), revision: z.union([z.literal(1), z.literal(2)]) }),
+    z.object({
+      type: z.literal("csv"),
+      responses: z.record(z.string(), z.string().min(1).max(10000)),
+    }),
+    z.object({
+      type: z.literal("http"),
+      connectionId: z.uuid(),
+      endpoint: z.url(),
+      contract: z.enum(["message-text-v1", "http-json-v1"]),
+    }),
+  ]),
 });
 
-export async function demoAgents(db: DB, org: string) {
+export async function auditAgents(db: DB, org: string) {
   const { data, error } = await db
     .from("agents")
     .select("id,name,client_id")
     .eq("organization_id", org)
-    .eq("environment", "demo")
-    .eq("connection_type", "demo")
     .eq("status", "active")
     .order("name")
     .limit(500);
   if (error)
-    throw new ApplicationError(
-      "DATABASE",
-      "Não foi possível carregar os chatbots de demonstração.",
-    );
+    throw new ApplicationError("DATABASE", "Não foi possível carregar os chatbots para auditoria.");
   return data;
 }
 export async function versionOptions(db: DB, org: string, agentId: string) {
@@ -49,9 +67,18 @@ export async function versionOptions(db: DB, org: string, agentId: string) {
       "PHASE2_SETUP",
       "Aplique a migration da Fase 2 para carregar as versões demonstrativas.",
     );
-  return data;
+  const agent = await getAgent(db, org, agentId);
+  if (!agent) return [];
+  if (agent.environment === "demo")
+    return data.map((version) => ({ ...version, source: "demo" as const }));
+  const connections = await listConnections(db, org, agentId);
+  return data
+    .filter((version) =>
+      connections.some((connection) => connection.agent_version_id === version.id),
+    )
+    .map((version) => ({ ...version, source: "http" as const }));
 }
-export async function auditCatalog(db: DB) {
+export async function auditCatalog(db: DB, org?: string) {
   const { data, error } = await db.from("test_cases").select("definition").order("key");
   if (error)
     throw new ApplicationError(
@@ -68,13 +95,107 @@ export async function auditCatalog(db: DB) {
       "CATALOG",
       "O catálogo instalado é incompatível com esta versão da aplicação.",
     );
-  return parsed.data;
+  if (!org) return parsed.data;
+  let custom: Awaited<ReturnType<typeof policies>> = [];
+  try {
+    custom = await policies(db, org);
+  } catch (error) {
+    if (!(error instanceof ApplicationError && error.code === "WORKFLOW_SETUP")) throw error;
+  }
+  const latest = new Map<string, (typeof custom)[number]>();
+  for (const rule of custom.filter((rule) => rule.state === "approved"))
+    if (!latest.has(rule.rule_key)) latest.set(rule.rule_key, rule);
+  return [
+    ...parsed.data,
+    ...Array.from(latest.values()).map((rule) => caseSchema.parse(rule.definition)),
+  ];
 }
 export async function createAuditRecord(
   db: DB,
   org: string,
   input: z.infer<typeof createAuditSchema>,
 ) {
+  if (input.previousRun) {
+    const previous = await auditDetails(db, org, input.previousRun);
+    if (
+      !previous ||
+      previous.run.status !== "completed" ||
+      previous.run.agent_id !== input.agentId ||
+      previous.run.source === "csv" ||
+      [...input.caseIds].sort().join() !== [...previous.run.selected_case_ids].sort().join()
+    )
+      throw new ApplicationError(
+        "RETEST",
+        "Selecione uma auditoria concluída deste chatbot e preserve todos os seus critérios.",
+      );
+    if (previous.criteria.evaluator.name === "semantic") {
+      if (!input.aiAuthorized)
+        throw new ApplicationError("AUTHORIZATION", "Autorize a avaliação por IA do reteste.");
+      try {
+        semanticModel();
+      } catch {
+        throw new ApplicationError(
+          "CONFIG",
+          "Configure a chave e o modelo do avaliador no servidor.",
+        );
+      }
+    }
+    const { data, error } = await db.rpc("retest_audit", {
+      org_id: org,
+      previous_run: input.previousRun,
+      selected_version: input.versionId,
+      idempotency_key: input.requestKey,
+      authorized: input.authorized,
+    });
+    if (error)
+      throw new ApplicationError(
+        "RETEST",
+        "Não foi possível preparar o reteste. Confira a migration B2B, a conexão da versão e o limite de execuções.",
+      );
+    return data;
+  }
+  const agent = await getAgent(db, org, input.agentId);
+  if (!agent) throw new ApplicationError("FORBIDDEN", "Chatbot indisponível.");
+  if (agent.environment !== "demo") {
+    const catalog = await auditCatalog(db, org);
+    const selected = catalog.filter((test) => input.caseIds.includes(test.id));
+    const semantic = selected.some((test) => test.evaluation.kind === "semantic");
+    if (semantic && !input.aiAuthorized)
+      throw new ApplicationError(
+        "AUTHORIZATION",
+        "Confirme o envio de perguntas, respostas e políticas ao provedor de IA configurado.",
+      );
+    if (semantic) {
+      let model: string;
+      try {
+        model = semanticModel();
+      } catch {
+        throw new ApplicationError(
+          "CONFIG",
+          "Configure a chave do avaliador e o modelo no servidor antes de avaliar políticas personalizadas.",
+        );
+      }
+      const { data, error } = await db.rpc("create_company_audit", {
+        org_id: org,
+        selected_agent: input.agentId,
+        selected_version: input.versionId,
+        case_ids: input.caseIds,
+        idempotency_key: input.requestKey,
+        selected_model: model,
+        authorized: true,
+      });
+      if (error)
+        throw new ApplicationError(
+          "AUDIT_CREATE",
+          "Não foi possível preparar a auditoria semântica. Confira as migrations, conexão e cenários aprovados.",
+        );
+      return data;
+    }
+    throw new ApplicationError(
+      "POLICY",
+      "Adicione e aprove regras da sua empresa antes de auditar um chatbot real. O catálogo fictício é exclusivo da demonstração.",
+    );
+  }
   const { data, error } = await db.rpc("create_demo_audit", {
     org_id: org,
     selected_agent: input.agentId,
@@ -87,8 +208,8 @@ export async function createAuditRecord(
     throw new ApplicationError(
       "AUDIT_CREATE",
       error.code === "PGRST202"
-        ? "Aplique a migration da Fase 2 antes de iniciar uma auditoria."
-        : "Não foi possível criar a auditoria. Confira a versão e o ambiente de demonstração; conclua ou cancele a execução ativa. O limite inicial é de 100 auditorias por mês por organização.",
+        ? "A migration necessária para esta auditoria ainda não foi instalada."
+        : "Não foi possível criar a auditoria. Confira a versão e a conexão; conclua ou cancele a execução ativa. O limite inicial é de 100 auditorias por mês por organização.",
     );
   return data;
 }
@@ -176,7 +297,7 @@ export async function auditDetails(db: DB, org: string, id: string) {
   return { run, ...snapshots, executions: executions.data, findings: findings.data };
 }
 export async function appendExecution(db: DB, runId: string, caseId: string, result: ExecutedTest) {
-  const { error } = await db.rpc("append_demo_execution", {
+  const args = {
     run_id: runId,
     case_id: caseId,
     result_verdict: result.verdict,
@@ -185,12 +306,32 @@ export async function appendExecution(db: DB, runId: string, caseId: string, res
     result_evidence: result.evidence,
     result_recommendation: result.recommendation,
     result_latency: result.latencyMs,
-  });
+  };
+  const { error } = result.usage
+    ? await db.rpc("append_evaluated_execution", {
+        ...args,
+        usage_model: result.usage.model,
+        input_tokens: result.usage.inputTokens,
+        output_tokens: result.usage.outputTokens,
+        estimated_cost: estimateEvaluationCost(result.usage),
+      })
+    : await db.rpc("append_demo_execution", args);
   if (error)
     throw new ApplicationError(
       "PERSISTENCE",
       "O resultado não pôde ser persistido. Tente continuar a execução; resultados já salvos não serão duplicados.",
     );
+}
+export async function interruptAudit(db: DB, id: string) {
+  const { error } = await db.rpc("fail_demo_audit", {
+    run_id: id,
+    failure_code: "SNAPSHOT_INVALID",
+  });
+  return !error;
+}
+export async function cancelAuditRecord(db: DB, id: string) {
+  const { error } = await db.rpc("cancel_demo_audit", { run_id: id });
+  if (error) throw new ApplicationError("DATABASE", "Não foi possível cancelar a auditoria.");
 }
 export async function findFinding(db: DB, org: string, id: string) {
   const { data, error } = await db

@@ -18,7 +18,8 @@ export default async function NewAuditPage({
     context,
     active: "/audits",
     title: "Prepare sua auditoria",
-    description: "Selecione a versão e os cenários para avaliar o bot fictício de demonstração.",
+    description:
+      "Selecione uma versão demonstrativa ou HTTP configurada e os cenários de referência.",
   };
   if (context.membership.role !== "owner")
     return (
@@ -27,15 +28,20 @@ export default async function NewAuditPage({
       </ResourceLayout>
     );
   let data: Awaited<ReturnType<typeof prepareAuditForm>> | null = null;
+  let httpMissing = false;
   try {
     data = await prepareAuditForm(context.db, context.organization.id, params);
   } catch (error) {
-    if (!(error instanceof ApplicationError && error.code === "PHASE2_SETUP")) throw error;
+    if (!(
+      error instanceof ApplicationError && ["PHASE2_SETUP", "PHASE3_SETUP"].includes(error.code)
+    ))
+      throw error;
+    httpMissing = error.code === "PHASE3_SETUP";
   }
   if (!data)
     return (
       <ResourceLayout {...shell}>
-        <AuditSetupNotice />
+        <AuditSetupNotice http={httpMissing} />
       </ResourceLayout>
     );
   const { agents, scenarios, selected, versions, baseline } = data;
@@ -43,8 +49,8 @@ export default async function NewAuditPage({
     return (
       <ResourceLayout {...shell}>
         <EmptyState
-          title="Cadastre um chatbot de demonstração"
-          description="Use dados fictícios: cliente Empresa Exemplo, chatbot Assistente Comercial, ambiente Demonstração e versão inicial v1."
+          title="Cadastre o chatbot da sua empresa"
+          description="Informe o nome e a finalidade, configure a conexão e adicione suas políticas. O modo Demonstração permanece disponível para conhecer o produto."
         />
         <Link href="/agents/new" className="mt-4 inline-block text-primary underline">
           Cadastrar chatbot
@@ -56,19 +62,22 @@ export default async function NewAuditPage({
       {baseline && (
         <p className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6">
           Reteste da versão {baseline.conditions.version.label}. Os mesmos cenários foram
-          selecionados. A comparação indicará qualquer mudança nos critérios.
+          preservados a partir do snapshot original, inclusive versões anteriores das políticas.
         </p>
       )}
       <NewAuditForm
         agents={agents}
         initialAgent={selected!.id}
         initialVersions={versions}
-        scenarios={
-          baseline
-            ? scenarios.filter((test) => baseline.run.selected_case_ids.includes(test.id))
-            : scenarios
-        }
+        scenarios={scenarios}
+        previousRun={baseline?.run.id}
       />
+      {!versions.length && (
+        <p role="status" className="mt-4 text-sm">
+          Este chatbot ainda não tem uma versão HTTP configurada. Abra os detalhes do chatbot e
+          registre a conexão antes de auditar.
+        </p>
+      )}
     </ResourceLayout>
   );
 }

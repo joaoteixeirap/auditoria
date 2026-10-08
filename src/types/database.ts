@@ -11,6 +11,7 @@ export type Client = {
   status: "active" | "archived";
   created_at: string;
   updated_at: string;
+  is_organization: boolean;
 };
 export type Agent = {
   id: string;
@@ -20,7 +21,7 @@ export type Agent = {
   description: string;
   category: "customer_service" | "sales" | "hr" | "support" | "finance" | "other";
   environment: "demo" | "staging" | "production";
-  connection_type: "demo";
+  connection_type: "demo" | "http";
   status: "active" | "archived";
   created_at: string;
   updated_at: string;
@@ -54,7 +55,7 @@ export type AuditRun = {
   agent_version_id: string;
   created_by: string;
   request_key: string;
-  source: "demo";
+  source: "demo" | "http" | "csv";
   status: AuditStatus;
   total_tests: number;
   processed_count: number;
@@ -99,6 +100,146 @@ type Table<Row, Insert, Update> = { Row: Row; Insert: Insert; Update: Update; Re
 export type Database = {
   public: {
     Tables: {
+      organization_invitations: Table<
+        {
+          id: string;
+          organization_id: string;
+          email: string;
+          role: "owner" | "member";
+          created_at: string;
+          expires_at: string;
+          used_at: string | null;
+        },
+        never,
+        never
+      >;
+      policy_documents: Table<
+        {
+          id: string;
+          organization_id: string;
+          name: string;
+          storage_path: string;
+          content: string;
+          created_by: string;
+          created_at: string;
+        },
+        {
+          id: string;
+          organization_id: string;
+          name: string;
+          storage_path: string;
+          content: string;
+          created_by: string;
+        },
+        never
+      >;
+      custom_scenarios: Table<
+        {
+          id: string;
+          organization_id: string;
+          rule_key: string;
+          version: number;
+          definition: Json;
+          state: "draft" | "approved";
+          document_id: string | null;
+          created_by: string;
+          created_at: string;
+        },
+        never,
+        never
+      >;
+      finding_reviews: Table<
+        {
+          id: string;
+          organization_id: string;
+          finding_id: string;
+          verdict: "confirmed" | "dismissed" | "needs_review";
+          reason: string;
+          created_by: string;
+          created_at: string;
+        },
+        {
+          organization_id: string;
+          finding_id: string;
+          verdict: "confirmed" | "dismissed" | "needs_review";
+          reason: string;
+        },
+        never
+      >;
+      release_decisions: Table<
+        {
+          id: string;
+          organization_id: string;
+          audit_run_id: string;
+          decision: "released" | "blocked" | "needs_review";
+          reason: string;
+          created_by: string;
+          created_at: string;
+        },
+        {
+          organization_id: string;
+          audit_run_id: string;
+          decision: "released" | "blocked" | "needs_review";
+          reason: string;
+        },
+        never
+      >;
+      audit_reports: Table<
+        {
+          id: string;
+          organization_id: string;
+          audit_run_id: string;
+          storage_path: string;
+          snapshot: Json;
+          created_by: string;
+          created_at: string;
+        },
+        {
+          id: string;
+          organization_id: string;
+          audit_run_id: string;
+          storage_path: string;
+          snapshot: Json;
+        },
+        never
+      >;
+      evaluation_usage: Table<
+        {
+          id: string;
+          organization_id: string;
+          test_execution_id: string;
+          model: string;
+          input_tokens: number;
+          output_tokens: number;
+          estimated_cost: number | null;
+          created_at: string;
+        },
+        never,
+        never
+      >;
+      agent_connections: Table<
+        {
+          id: string;
+          organization_id: string;
+          agent_id: string;
+          agent_version_id: string;
+          endpoint: string;
+          encrypted_token: string | null;
+          encrypted_config: string | null;
+          contract: string;
+          created_at: string;
+        },
+        {
+          organization_id: string;
+          agent_id: string;
+          agent_version_id: string;
+          endpoint: string;
+          encrypted_token: string | null;
+          encrypted_config?: string | null;
+          contract?: string;
+        },
+        never
+      >;
       profiles: Table<
         { id: string; display_name: string; created_at: string; updated_at: string },
         { id: string; display_name?: string },
@@ -108,8 +249,10 @@ export type Database = {
       organization_members: Table<Membership, never, never>;
       clients: Table<
         Client,
-        Omit<Client, "id" | "created_at" | "updated_at">,
-        Partial<Omit<Client, "id" | "organization_id" | "created_at" | "updated_at">>
+        Omit<Client, "id" | "created_at" | "updated_at" | "is_organization">,
+        Partial<
+          Omit<Client, "id" | "organization_id" | "created_at" | "updated_at" | "is_organization">
+        >
       >;
       agents: Table<
         Agent,
@@ -153,7 +296,7 @@ export type Database = {
           audit_run_id: string;
           kind: string;
           units: number;
-          estimated_cost: number;
+          estimated_cost: number | null;
           created_at: string;
         },
         never,
@@ -162,6 +305,113 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      create_membership_invitation: {
+        Args: { org_id: string; target_email: string; target_role: string; invite_hash: string };
+        Returns: string;
+      };
+      accept_membership_invitation: { Args: { invite_hash: string }; Returns: string };
+      revoke_membership_invitation: {
+        Args: { org_id: string; invitation_id: string };
+        Returns: undefined;
+      };
+      memberships_health: { Args: Record<string, never>; Returns: string };
+      company_members: {
+        Args: { org_id: string };
+        Returns: { user_id: string; display_name: string; role: string; created_at: string }[];
+      };
+      company_client_id: { Args: { org_id: string }; Returns: string };
+      create_company_agent: {
+        Args: {
+          org_id: string;
+          agent_name: string;
+          agent_description: string;
+          agent_category: string;
+          agent_environment: string;
+          version_label: string;
+          linked_client?: string;
+        };
+        Returns: string;
+      };
+      company_dashboard: { Args: { org_id: string }; Returns: Json };
+      b2b_health: { Args: Record<string, never>; Returns: string };
+      create_company_audit: {
+        Args: {
+          org_id: string;
+          selected_agent: string;
+          selected_version: string;
+          case_ids: string[];
+          idempotency_key: string;
+          selected_model: string;
+          authorized: boolean;
+        };
+        Returns: string;
+      };
+      retest_audit: {
+        Args: {
+          org_id: string;
+          previous_run: string;
+          selected_version: string;
+          idempotency_key: string;
+          authorized: boolean;
+        };
+        Returns: string;
+      };
+      audit_statistics: { Args: { org_id: string }; Returns: Json };
+      save_custom_scenario: {
+        Args: {
+          org_id: string;
+          scenario: Json;
+          approved: boolean;
+          previous_key?: string;
+          linked_document?: string;
+        };
+        Returns: string;
+      };
+      create_workflow_audit: {
+        Args: {
+          org_id: string;
+          selected_agent: string;
+          selected_version: string;
+          case_ids: string[];
+          idempotency_key: string;
+          selected_source: string;
+          imported: Json;
+          selected_model: string | null;
+          authorized: boolean;
+        };
+        Returns: string;
+      };
+      append_evaluated_execution: {
+        Args: {
+          run_id: string;
+          case_id: string;
+          result_verdict: string;
+          result_response: string;
+          result_reason: string;
+          result_evidence: string;
+          result_recommendation: string;
+          result_latency: number;
+          usage_model?: string;
+          input_tokens?: number;
+          output_tokens?: number;
+          estimated_cost?: number;
+        };
+        Returns: string;
+      };
+      phase3_health: { Args: Record<string, never>; Returns: string };
+      phase4_health: { Args: Record<string, never>; Returns: string };
+      phase6_health: { Args: Record<string, never>; Returns: string };
+      create_http_audit: {
+        Args: {
+          org_id: string;
+          selected_agent: string;
+          selected_version: string;
+          case_ids: string[];
+          idempotency_key: string;
+          authorized: boolean;
+        };
+        Returns: string;
+      };
       create_organization: { Args: { organization_name: string }; Returns: string };
       create_agent: {
         Args: {

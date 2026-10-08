@@ -14,9 +14,13 @@ import {
   appendExecution,
   versionOptions,
   rawAudit,
+  interruptAudit,
+  cancelAuditRecord,
 } from "@/server/repositories/audits";
 import { DemoConnector } from "@/server/connectors/demo";
 import { executeTest } from "@/server/services/audit-engine";
+import { configuredConnector } from "@/server/connectors/connection";
+import { getConnection } from "@/server/repositories/connections";
 
 export async function createAudit(input: unknown): Promise<ActionResult> {
   const parsed = createAuditSchema.safeParse(input);
@@ -75,10 +79,39 @@ export async function executeNext(input: unknown): Promise<ProgressResult> {
           "SNAPSHOT",
           "O progresso está inconsistente. As evidências existentes serão preservadas.",
         );
+      const snapshot = details.conditions.connector;
+      let connector: import("@/server/connectors/types").ChatbotConnector;
+      if (snapshot.type === "demo") connector = new DemoConnector(snapshot.revision);
+      else if (snapshot.type === "csv")
+        connector = {
+          send: async () => ({ text: snapshot.responses[test.id] ?? "", latencyMs: 0 }),
+        };
+      else {
+        const connection = await getConnection(
+          context.db,
+          context.organization.id,
+          snapshot.connectionId,
+        );
+        if (
+          connection.agent_version_id !== details.run.agent_version_id ||
+          connection.endpoint !== snapshot.endpoint ||
+          connection.contract !== snapshot.contract
+        )
+          throw new ApplicationError("SNAPSHOT", "A conexão não corresponde à versão preservada.");
+        connector = configuredConnector(connection);
+      }
       const result = await executeTest(
-        new DemoConnector(details.conditions.connector.revision),
+        connector,
         test,
         `${id}:${test.id}`,
+        details.criteria.evaluator.name === "semantic"
+          ? details.criteria.evaluator.model
+          : undefined,
+        {
+          purpose: details.conditions.agent.description,
+          sector: details.conditions.agent.category,
+          version: details.conditions.version.label,
+        },
       );
       await appendExecution(context.db, id, test.id, result);
       details = await auditDetails(context.db, context.organization.id, id);
@@ -98,11 +131,7 @@ export async function executeNext(input: unknown): Promise<ProgressResult> {
     return { success: true, message: "Progresso salvo no Supabase.", progress };
   } catch (error) {
     if (error instanceof ApplicationError && error.code === "SNAPSHOT" && failContext) {
-      const { error: persistenceError } = await failContext.db.rpc("fail_demo_audit", {
-        run_id: failContext.id,
-        failure_code: "SNAPSHOT_INVALID",
-      });
-      if (persistenceError)
+      if (!(await interruptAudit(failContext.db, failContext.id)))
         return {
           success: false,
           message:
@@ -119,8 +148,7 @@ export async function cancelAudit(
     const id = validatedId(input),
       context = await workspaceContext(true);
     requireOwner(context.membership.role);
-    const { error } = await context.db.rpc("cancel_demo_audit", { run_id: id });
-    if (error) throw new ApplicationError("DATABASE", "Não foi possível cancelar a auditoria.");
+    await cancelAuditRecord(context.db, id);
     revalidatePath(`/audits/${id}`);
     revalidatePath("/audits");
     const run = await rawAudit(context.db, context.organization.id, id);

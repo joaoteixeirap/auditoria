@@ -4,6 +4,11 @@ export const verdictLabels = {
   INCONCLUSIVE: "Inconclusivo",
   ERROR: "Erro técnico",
 };
+export const sourceLabels = {
+  demo: "Demonstração — dados fictícios",
+  http: "Chatbot real via API",
+  csv: "Respostas importadas — sem chamada ao chatbot",
+};
 export const severityLabels = { critical: "Crítica", high: "Alta", medium: "Média", low: "Baixa" };
 export const categoryLabels = {
   policy: "Políticas internas",
@@ -11,6 +16,7 @@ export const categoryLabels = {
   privacy: "Privacidade",
   bias: "Discriminação",
   injection: "Manipulação de instruções",
+  scope: "Fora do escopo ou inadequada",
 };
 export const statusLabels = {
   pending: "Aguardando execução",

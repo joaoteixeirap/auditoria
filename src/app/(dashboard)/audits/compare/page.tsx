@@ -3,8 +3,8 @@ import { ResourceLayout, EmptyState } from "@/components/shared/resource-layout"
 import { pageWorkspace } from "@/server/services/workspace";
 import { auditDetails, auditOptions } from "@/server/repositories/audits";
 import { uuidSchema } from "@/lib/validations/entities";
-import { compareResults } from "@/features/audits/comparison";
-import { comparisonLabels, verdictLabels } from "@/features/audits/labels";
+import { compareResults, sameEvaluationSettings } from "@/features/audits/comparison";
+import { comparisonLabels, verdictLabels, sourceLabels } from "@/features/audits/labels";
 import { summarizeResults } from "@/features/audits/metrics";
 import Link from "next/link";
 
@@ -47,7 +47,26 @@ export default async function ComparePage({
       after.run.id === before.run.id)
   )
     notFound();
-  const comparable = after && before.run.criteria_fingerprint === after.run.criteria_fingerprint;
+  const evaluationCompatible =
+    after &&
+    sameEvaluationSettings(
+      {
+        evaluator: before.criteria.evaluator,
+        source: before.run.source,
+        purpose: before.conditions.agent.description,
+        sector: before.conditions.agent.category,
+      },
+      {
+        evaluator: after.criteria.evaluator,
+        source: after.run.source,
+        purpose: after.conditions.agent.description,
+        sector: after.conditions.agent.category,
+      },
+    );
+  const comparable =
+    evaluationCompatible &&
+    after &&
+    before.run.criteria_fingerprint === after.run.criteria_fingerprint;
   const beforeResults = before.executions.map((execution) => ({
     test: before.criteria.cases.find((test) => test.id === execution.test_case_id)!,
     verdict: execution.verdict,
@@ -57,7 +76,15 @@ export default async function ComparePage({
       test: after.criteria.cases.find((test) => test.id === execution.test_case_id)!,
       verdict: execution.verdict,
     })) ?? [];
-  const rows = after ? compareResults(beforeResults, afterResults) : [];
+  const rows = after
+    ? compareResults(beforeResults, afterResults).map((row) => ({
+        ...row,
+        classification:
+          !evaluationCompatible && row.before && row.after
+            ? ("criteria_changed" as const)
+            : row.classification,
+      }))
+    : [];
   const totals = after
     ? {
         fixed: rows.filter((row) => row.classification === "fixed").length,
@@ -135,7 +162,7 @@ export default async function ComparePage({
           >
             {comparable
               ? "Critérios compatíveis: cenários, regras e configuração do avaliador são os mesmos nas duas execuções."
-              : "Os cenários ou critérios mudaram. Os percentuais não são diretamente comparáveis; somente cenários com critérios idênticos são classificados como correção ou regressão."}
+              : "Os cenários, critérios, avaliador, contexto ou origem mudaram. Os percentuais não são diretamente comparáveis; correções e regressões exigem critérios e condições de avaliação compatíveis."}
           </div>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
             {[
@@ -146,7 +173,8 @@ export default async function ComparePage({
               return (
                 <div key={label} className="rounded-xl border bg-white p-5">
                   <p className="text-xs text-muted-foreground">
-                    {label} · {details.conditions.version.label} · Demonstração
+                    {label} · {details.conditions.version.label} ·{" "}
+                    {sourceLabels[details.run.source]}
                   </p>
                   <p className="mt-3 text-3xl font-semibold">
                     {metrics.approvalRate === null ? "Não calculável" : `${metrics.approvalRate}%`}

@@ -19,7 +19,8 @@ Foreign keys compostas `(organization_id, client_id)` e
 
 Todas as tabelas têm RLS. Usuários só consultam organizações de que participam.
 Owner cadastra/edita; member lê. Membership não tem grants de alteração para
-authenticated, impedindo autopromoção. Convites ainda não são expostos na UI.
+authenticated, impedindo autopromoção. Convites por código estão preparados na
+migration incremental de equipe descrita abaixo.
 Funções de membership ficam no schema private, não exposto pela Data API,
 com search_path vazio e execute restrito.
 
@@ -59,13 +60,56 @@ no projeto remoto. O fluxo manual remoto permanece pendente.
 
 ## Fases posteriores
 
-Adicionar agent_connections, policy_documents, políticas personalizadas,
-finding_reviews e audit_reports conforme cada módulo for implementado.
+A migration incremental `202610080001_http.sql` está preparada e testada
+localmente, mas **não aplicada no remoto**. Acrescenta agent_connections com
+RLS owner, vínculo composto com versão e configuração imutável; habilita
+source HTTP em audit_runs e create_http_audit com snapshots sem credenciais.
+Reutiliza append/cancel/fail existentes, cuja persistência não depende do conector.
+Uso HTTP tem custo desconhecido null. Consulte [http-connector.md](http-connector.md).
+
+A migration `202610080002_workflow.sql`, ainda não aplicada no remoto, cria
+policy_documents, custom_scenarios, finding_reviews, release_decisions e
+audit_reports. Regras são privadas e versionadas; RPCs só usam cenários aprovados
+da organização. CSV preserva respostas no snapshot. Um trigger restringe cada
+execução aos cenários desse snapshot, permitindo critérios privados sem contaminar
+o catálogo global. FKs compostas mantêm vínculos de documentos, achados e relatórios.
+
+Revisões/decisões são append-only. RLS bloqueia liberação com erro, inconclusivo
+ou achado pendente/confirmado. Buckets policy-documents e audit-reports são
+privados, com SELECT de member e INSERT de owner no prefixo da organização.
+Sem UPDATE/DELETE concedidos pelas novas políticas.
+
+`202610080003_usage.sql` acrescenta evaluation_usage imutável e append atômico
+de resultado/consumo. audit_statistics agrega somente auditorias concluídas com
+RLS do chamador. Marcadores workflow-v1 e usage-v1 indicam instalação.
+Os testes locais usam SQL real e uma estrutura mínima de storage.objects/buckets;
+não são testes do serviço remoto de upload/download. Ver [workflow.md](workflow.md).
 
 Preservar snapshots e evidências históricas. Não usar exclusões em cascata que
 destruam auditorias. Revisões humanas são anexadas e não apagam vereditos originais.
 Documentos e relatórios ficam em buckets privados com políticas por organização.
 
-Credenciais de conectores serão criptografadas no servidor; a publishable key
+Credenciais de conectores são criptografadas no servidor; a publishable key
 é a única chave utilizada nas operações comuns, junto da sessão autenticada.
 RLS não será contornado com service_role.
+
+## Alinhamento B2B e equipe — migrations incrementais pendentes
+
+`202610080004_b2b.sql` acrescenta um cliente interno por organização e um trigger
+para novas organizações. Não remove clientes, não modifica os vínculos antigos
+e não recria tabelas equivalentes. `create_company_agent` usa esse registro
+quando não houver vínculo legado opcional. Mantém as FKs compostas existentes.
+
+A mesma migration admite configuração HTTP criptografada, categoria fora do
+escopo, criação de auditoria real somente com políticas privadas aprovadas,
+reteste com snapshot original e agregação empresarial sob RLS do chamador.
+Versões, conexões e resultados continuam imutáveis.
+
+`202610080005_memberships.sql` cria convites por hash, sem leitura pública de
+códigos/hash nem grants diretos de escrita. RPCs verificam administrador,
+destinatário com e-mail confirmado, validade e uso único. Aceitar novamente não
+promove quem já é membro. A consulta de equipe verifica membership antes de
+retornar nomes/papéis, sem revelar e-mails de outras organizações.
+
+Ambas foram executadas nos testes PostgreSQL locais, inclusive com dados
+anteriores e tentativas de acesso cruzado. Ainda não foram aplicadas no remoto.

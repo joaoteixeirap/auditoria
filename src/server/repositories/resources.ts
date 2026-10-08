@@ -19,7 +19,11 @@ export function safeSearch(input: string) {
 }
 
 export async function listClients(db: DB, org: string, page: number, search: string) {
-  let query = db.from("clients").select("*", { count: "exact" }).eq("organization_id", org);
+  let query = db
+    .from("clients")
+    .select("*", { count: "exact" })
+    .eq("organization_id", org)
+    .eq("is_organization", false);
   if (search) query = query.ilike("name", `%${safeSearch(search)}%`);
   const { data, error, count } = await query
     .order("created_at", { ascending: false })
@@ -33,9 +37,14 @@ export async function clientOptions(db: DB, org: string) {
     .from("clients")
     .select("id,name,status")
     .eq("organization_id", org)
+    .eq("is_organization", false)
     .order("name")
     .limit(500);
-  if (error) throw new ApplicationError("DATABASE", "Não foi possível carregar os clientes.");
+  if (error)
+    throw new ApplicationError(
+      "B2B_SETUP",
+      "Ative a migration B2B para cadastrar chatbots diretamente na empresa.",
+    );
   return data;
 }
 export async function getClient(db: DB, org: string, id: string) {
@@ -98,7 +107,7 @@ export async function saveAgent(
       .from("agents")
       .update({
         name: input.name,
-        client_id: input.client_id,
+        client_id: input.client_id || (await companyClientId(db, org)),
         description: input.description,
         category: input.category,
         environment: input.environment,
@@ -112,9 +121,9 @@ export async function saveAgent(
     return data.id;
   }
   if (!("version" in input)) throw new ApplicationError("VALIDATION", "Informe a versão inicial.");
-  const { data, error } = await db.rpc("create_agent", {
+  const { data, error } = await db.rpc("create_company_agent", {
     org_id: org,
-    linked_client: input.client_id,
+    ...(input.client_id ? { linked_client: input.client_id } : {}),
     agent_name: input.name,
     agent_description: input.description,
     agent_category: input.category,
@@ -123,6 +132,27 @@ export async function saveAgent(
   });
   if (error)
     throw new ApplicationError("DATABASE", "Não foi possível cadastrar o chatbot e sua versão.");
+  return data;
+}
+export async function companyClientId(db: DB, org: string) {
+  const { data, error } = await db.rpc("company_client_id", { org_id: org });
+  if (error)
+    throw new ApplicationError(
+      "B2B_SETUP",
+      "Aplique a migration B2B para cadastrar chatbots diretamente na empresa.",
+    );
+  return data;
+}
+export async function getVersion(db: DB, org: string, agent: string, id: string) {
+  const { data, error } = await db
+    .from("agent_versions")
+    .select("*")
+    .eq("organization_id", org)
+    .eq("agent_id", agent)
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data)
+    throw new ApplicationError("FORBIDDEN", "Versão indisponível para este chatbot.");
   return data;
 }
 export async function listVersions(db: DB, org: string, id: string, page = 1) {
@@ -152,7 +182,7 @@ export async function insertVersion(db: DB, org: string, id: string, input: Vers
 }
 export async function dashboardMetrics(db: DB, org: string) {
   const results = await Promise.all([
-    db.from("clients").select("id", { count: "exact", head: true }).eq("organization_id", org),
+    db.from("agents").select("id", { count: "exact", head: true }).eq("organization_id", org),
     db
       .from("agents")
       .select("id", { count: "exact", head: true })
@@ -168,7 +198,7 @@ export async function dashboardMetrics(db: DB, org: string) {
   if (results.some((r) => r.error))
     throw new ApplicationError("DATABASE", "Não foi possível carregar o dashboard.");
   return {
-    clients: results[0].count ?? 0,
+    totalAgents: results[0].count ?? 0,
     activeAgents: results[1].count ?? 0,
     recentAgents: results[2].data ?? [],
   };

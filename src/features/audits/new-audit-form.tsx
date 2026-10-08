@@ -8,17 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Feedback, inputClass, useServerSubmit } from "@/components/shared/forms";
 
-type Option = { id: string; label: string; demo_revision: 1 | 2 };
+type Option = { id: string; label: string; demo_revision: 1 | 2; source: "demo" | "http" };
 export function NewAuditForm({
   agents,
   initialAgent,
   initialVersions,
   scenarios,
+  previousRun,
 }: {
   agents: { id: string; name: string }[];
   initialAgent: string;
   initialVersions: Option[];
   scenarios: TestCase[];
+  previousRun?: string;
 }) {
   const [agentId, setAgentId] = useState(initialAgent),
     [versions, setVersions] = useState(initialVersions);
@@ -27,8 +29,27 @@ export function NewAuditForm({
       initialVersions[0]?.id ??
       "",
   );
-  const [selected, setSelected] = useState(scenarios.map((test) => test.id)),
+  const [selected, setSelected] = useState(
+      scenarios
+        .filter(
+          (test) =>
+            previousRun ||
+            (initialVersions[0]?.source === "demo"
+              ? test.evaluation.kind !== "semantic"
+              : test.evaluation.kind === "semantic"),
+        )
+        .slice(0, 10)
+        .map((test) => test.id),
+    ),
     [authorized, setAuthorized] = useState(false);
+  const [aiAuthorized, setAiAuthorized] = useState(false);
+  const isDemo = versions.find((version) => version.id === versionId)?.source === "demo";
+  const availableScenarios = previousRun
+    ? scenarios
+    : isDemo
+      ? scenarios.filter((test) => test.evaluation.kind !== "semantic")
+      : scenarios.filter((test) => test.evaluation.kind === "semantic");
+  const chosen = selected.filter((id) => availableScenarios.some((test) => test.id === id));
   const [loading, transition] = useTransition(),
     [loadingError, setLoadingError] = useState("");
   const generation = useRef(0),
@@ -48,6 +69,16 @@ export function NewAuditForm({
         return;
       }
       setVersions(result.versions);
+      setSelected(
+        scenarios
+          .filter((test) =>
+            result.versions[0]?.source === "demo"
+              ? test.evaluation.kind !== "semantic"
+              : test.evaluation.kind === "semantic",
+          )
+          .slice(0, 10)
+          .map((test) => test.id),
+      );
       setVersionId(
         result.versions.find((version) => version.demo_revision === 1)?.id ??
           result.versions[0]?.id ??
@@ -64,21 +95,24 @@ export function NewAuditForm({
         submit({
           agentId,
           versionId,
-          caseIds: selected,
+          caseIds: chosen,
           authorized,
+          aiAuthorized,
           requestKey: requestKey.current,
+          previousRun,
         });
       }}
     >
       <fieldset disabled={pending} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div>
           <label htmlFor="audit-agent" className="mb-2 block text-sm font-medium">
-            Chatbot de demonstração
+            Chatbot a testar
           </label>
           <select
             id="audit-agent"
             className={inputClass}
             value={agentId}
+            disabled={!!previousRun}
             onChange={(event) => changeAgent(event.target.value)}
           >
             {agents.map((agent) => (
@@ -103,7 +137,11 @@ export function NewAuditForm({
             {versions.map((version) => (
               <option value={version.id} key={version.id}>
                 {version.label} ·{" "}
-                {version.demo_revision === 1 ? "Falhas intencionais" : "Corrigida"}
+                {version.source === "http"
+                  ? "HTTP"
+                  : version.demo_revision === 1
+                    ? "Falhas intencionais"
+                    : "Corrigida"}
               </option>
             ))}
           </select>
@@ -114,13 +152,13 @@ export function NewAuditForm({
           {loadingError}
         </p>
       )}
-      <fieldset disabled={pending} className="space-y-3">
+      <fieldset disabled={pending || !!previousRun} className="space-y-3">
         <legend className="mb-3 font-semibold">Cenários e regras de referência</legend>
         <p className="mb-4 text-sm text-muted-foreground">
-          Selecione de 1 a 10 testes. As regras abaixo são fictícias e serão preservadas no
-          snapshot.
+          Selecione de 1 a 10 testes. O catálogo curado usa políticas fictícias; regras próprias
+          aprovadas usam avaliação semântica. Os critérios selecionados serão preservados.
         </p>
-        {scenarios.map((test) => (
+        {availableScenarios.map((test) => (
           <label
             key={test.id}
             className="flex cursor-pointer items-start gap-3 rounded-xl border bg-white p-4"
@@ -154,6 +192,14 @@ export function NewAuditForm({
             </span>
           </label>
         ))}
+        {!availableScenarios.length && (
+          <p className="text-sm">
+            Nenhuma política aprovada disponível.{" "}
+            <a className="text-primary underline" href="/policies">
+              Adicionar políticas da empresa
+            </a>
+          </p>
+        )}
       </fieldset>
       <label className="flex items-start gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6">
         <input
@@ -164,16 +210,42 @@ export function NewAuditForm({
           className="mt-1 size-4 accent-indigo-700"
         />
         <span>
-          Confirmo que tenho autorização para testar este chatbot e entendo que esta execução usa um
-          bot fictício de demonstração, sem chamar uma API externa.
+          Confirmo que tenho autorização para testar este chatbot. Entendo que versões HTTP enviam
+          as perguntas ao endpoint configurado e que as regras fictícias deste catálogo precisam ser
+          compatíveis com o chatbot. Versões de demonstração não chamam APIs externas.
         </span>
       </label>
       <Feedback result={result} />
+      {chosen.some(
+        (id) => scenarios.find((test) => test.id === id)?.evaluation.kind === "semantic",
+      ) && (
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={aiAuthorized}
+            onChange={(event) => setAiAuthorized(event.target.checked)}
+            disabled={pending}
+          />
+          Autorizo enviar as perguntas, respostas, finalidade do chatbot e políticas selecionadas à
+          provedor de IA configurado (Gemini ou OpenAI) para avaliação semântica.
+        </label>
+      )}
       <Button
-        disabled={pending || loading || !authorized || !versionId || !selected.length}
+        disabled={
+          pending ||
+          loading ||
+          !authorized ||
+          !versionId ||
+          !chosen.length ||
+          chosen.length > 10 ||
+          (chosen.some(
+            (id) => scenarios.find((test) => test.id === id)?.evaluation.kind === "semantic",
+          ) &&
+            !aiAuthorized)
+        }
         type="submit"
       >
-        {pending ? "Preparando…" : `Preparar auditoria · ${selected.length} teste(s)`}
+        {pending ? "Preparando…" : `Preparar auditoria · ${chosen.length} teste(s)`}
       </Button>
     </form>
   );

@@ -4,6 +4,7 @@ import { OrganizationForm } from "@/features/organizations/organization-form";
 import { authenticatedClient } from "@/server/services/workspace";
 import { ApplicationError } from "@/server/services/errors";
 import { signOut } from "@/features/auth/actions";
+import { JoinOrganizationForm } from "@/features/organizations/invitation-forms";
 
 export const metadata = { title: "Criar organização" };
 export default async function OnboardingPage() {
@@ -17,10 +18,11 @@ export default async function OnboardingPage() {
     <>
       <h1 className="text-2xl font-semibold">Crie sua organização</h1>
       <p className="mb-6 mt-2 text-sm leading-6 text-muted-foreground">
-        Sua agência ou empresa terá seu próprio espaço. Você será owner e poderá cadastrar clientes
-        e chatbots.
+        Sua empresa terá um espaço independente. Você será administrador e poderá cadastrar seus
+        próprios chatbots, políticas e auditorias, sem depender de intermediários.
       </p>
       <OrganizationForm />
+      <JoinOrganizationForm />
       <Link href="/dashboard" className="mt-6 block text-sm text-primary underline">
         Acessar uma organização existente
       </Link>

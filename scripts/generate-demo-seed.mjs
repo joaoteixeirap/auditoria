@@ -19,7 +19,8 @@ for (const entry of catalog) {
     `insert into public.test_cases(id,suite_id,key,version,policy_key,policy_version,definition) values(${escape(test.id)},'${suite}',${escape(test.key)},${test.version},${escape(test.policy.key)},${test.policy.version},${escape(JSON.stringify(test))}::jsonb);`,
   );
 }
-const sql = await readFile(target, "utf8");
+// A comparação do catálogo deve funcionar também em clones Windows com CRLF.
+const sql = (await readFile(target, "utf8")).replaceAll("\r\n", "\n");
 const generated = sql.replace(
   /-- BEGIN GENERATED DEMO CATALOG[\s\S]*?-- END GENERATED DEMO CATALOG/,
   `-- BEGIN GENERATED DEMO CATALOG\n${statements.join("\n")}\n-- END GENERATED DEMO CATALOG`,

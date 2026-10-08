@@ -13,12 +13,15 @@ import {
 import { cn } from "@/lib/utils";
 import { signOut } from "@/features/auth/actions";
 
-const navigation = [
+const navigation: { label: string; icon: typeof Bot; href?: string; phase?: string }[] = [
   { label: "Visão geral", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Clientes", icon: Users, href: "/clients" },
   { label: "Chatbots", icon: Bot, href: "/agents" },
   { label: "Auditorias", icon: FlaskConical, href: "/audits" },
-  { label: "Relatórios", icon: FileChartColumn, phase: "Fase 5" },
+  { label: "Políticas", icon: ShieldCheck, href: "/policies" },
+  { label: "Empresa e equipe", icon: Users, href: "/organizations" },
+  { label: "Importar CSV", icon: FileChartColumn, href: "/audits/import" },
+  { label: "Relatórios", icon: FileChartColumn, href: "/reports" },
+  { label: "Uso", icon: FileChartColumn, href: "/usage" },
   { label: "Configuração", icon: Settings2, href: "/settings" },
 ];
 
@@ -87,13 +90,13 @@ export function AppShell({
         <Brand />
         <div className="mt-9 rounded-lg border bg-slate-50 p-3">
           <p className="truncate text-xs font-semibold">
-            {workspace?.name ?? "Configure seu workspace"}
+            {workspace?.name ?? "Configure sua organização"}
           </p>
           <p className="mt-1 text-xs text-slate-500">
             {workspace
               ? workspace.role === "owner"
-                ? "Owner · Gerenciamento"
-                : "Member · Leitura"
+                ? "Administrador · Gerenciamento"
+                : "Membro · Leitura"
               : "Entre para acessar sua organização"}
           </p>
         </div>
@@ -116,14 +119,14 @@ export function AppShell({
             <Brand />
           </div>
           <p className="hidden text-sm text-slate-500 lg:block">
-            Workspace <span className="mx-3 text-slate-300">/</span>
+            Organização <span className="mx-3 text-slate-300">/</span>
             <span className="font-medium text-foreground">
               {navigation.find((item) => item.href === active)?.label ?? "Configuração inicial"}
             </span>
           </p>
           <div className="hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium text-slate-600 sm:flex">
             <span className="size-1.5 rounded-full bg-indigo-500" aria-hidden="true" />
-            Fase 2 · Auditorias demonstrativas
+            Auditorias · Demonstração, HTTP e CSV
           </div>
           {workspace ? (
             <details className="relative text-sm">

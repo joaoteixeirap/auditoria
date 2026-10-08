@@ -7,9 +7,17 @@ test("rotas privadas redirecionam usuário sem sessão", async ({ page }) => {
     "/clients/new",
     "/agents",
     "/agents/new",
+    "/agents/11111111-1111-4111-8111-111111111111",
     "/audits",
     "/audits/new",
+    "/audits/11111111-1111-4111-8111-111111111111",
     "/audits/compare",
+    "/audits/import",
+    "/policies",
+    "/policies/documents/11111111-1111-4111-8111-111111111111",
+    "/reports",
+    "/reports/11111111-1111-4111-8111-111111111111",
+    "/usage",
     "/organizations",
     "/onboarding",
     "/reset-password",
@@ -56,7 +64,7 @@ test("configuração mantém navegação utilizável em tela pequena", async ({ 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/settings");
   await page.getByText("Navegação", { exact: true }).click();
-  await expect(page.getByRole("link", { name: "Clientes", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Empresa e equipe", exact: true })).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   );

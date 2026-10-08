@@ -40,6 +40,25 @@ try {
       ? "Migration Fase 2: instalada."
       : `Migration Fase 2: não identificada (HTTP ${audits.status}).`,
   );
+  for (const [rpc, marker, label] of [
+    ["phase3_health", "phase3-http-v1", "Conector HTTP"],
+    ["phase4_health", "workflow-v1", "CSV, políticas, revisão e relatórios"],
+    ["phase6_health", "usage-v1", "Métricas e consumo de IA"],
+    ["b2b_health", "b2b-v1", "Modelo empresarial e conexão genérica"],
+    ["memberships_health", "memberships-v1", "Convites e equipe"],
+  ]) {
+    const response = await fetch(new URL(`/rest/v1/rpc/${rpc}`, url), {
+      method: "POST",
+      headers: { apikey: key, "Content-Type": "application/json" },
+      body: "{}",
+      redirect: "error",
+      signal: AbortSignal.timeout(8000),
+    });
+    const installed = response.ok && (await response.json()) === marker;
+    console.log(
+      installed ? `${label}: instalado.` : `${label}: não identificado (HTTP ${response.status}).`,
+    );
+  }
 } catch {
   console.log("Falha de rede ou timeout. Nenhuma URL ou chave exibida.");
   process.exit(1);

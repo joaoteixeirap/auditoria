@@ -17,7 +17,7 @@ export const clientSchema = z.object({
 });
 export const agentSchema = z.object({
   name,
-  client_id: uuidSchema,
+  client_id: z.union([uuidSchema, z.literal("")]),
   description,
   category: z.enum(["customer_service", "sales", "hr", "support", "finance", "other"]),
   environment: z.enum(["demo", "staging", "production"]),
